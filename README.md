@@ -20,9 +20,9 @@ To record voice in `.wav` and DOA and timestamp in `.json`, run `respeaker_local
 $ python respeaker_local.py [-h] [-i INDEX] [-d DURATION] [-t TIMESTEP] [-w WAVE] [-j JSON]
 ``` 
 with options:
-        -h, --help:                          show this help message and exit
-        -i INDEX, --index INDEX:             input device id (default: 1)
-        -d DURATION, --duration DURATION:    recording duration (s)
-        -t TIMESTEP, --timestep TIMESTEP:    timestep for DOA (s)
-        -w WAVE, --wave WAVE:                save voice data into wave format
-        -j JSON, --json JSON:                save doa and timestamp into json format
+- `-h`, `--help`:                          show this help message and exit
+- `-i INDEX`, `--index INDEX`:             input device id (default: 1)
+- `-d DURATION`, `--duration DURATION`:    recording duration (s)
+- `-t TIMESTEP`, `--timestep TIMESTEP`:    timestep for DOA (s)
+- `-w WAVE`, `--wave WAVE`:                save voice data into wave format
+- `-j JSON`, `--json JSON`:                save doa and timestamp into json format
