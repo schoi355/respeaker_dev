@@ -25,4 +25,4 @@ with options:
 - `-d DURATION`, `--duration DURATION`:    recording duration (s)
 - `-t TIMESTEP`, `--timestep TIMESTEP`:    timestep for DOA (s)
 - `-w WAVE`, `--wave WAVE`:                save voice data into wave format
-- `-j JSON`, `--json JSON`:                save doa and timestamp into json format
+- `-j JSON`, `--json JSON`:                save DOA and timestamp into json format
