@@ -4,6 +4,8 @@ import pyaudio
 import wave
 import numpy as np
 from tuning import Tuning
+import json
+import time
 
 RESPEAKER_RATE = 16000
 RESPEAKER_CHANNELS = 1 # change base on firmwares, 1_channel_firmware.bin as 1 or 6_channels_firmware.bin as 6
@@ -38,6 +40,7 @@ def record_audio(stream, p, dev):
     wf1.setsampwidth(p.get_sample_size(p.get_format_from_width(RESPEAKER_WIDTH)))
     wf1.setframerate(RESPEAKER_RATE)
 
+    data_list = []
     count = 1
     for i in range(0, int(RESPEAKER_RATE / CHUNK * RECORD_SECONDS)):
         data = stream.read(CHUNK)
@@ -46,11 +49,18 @@ def record_audio(stream, p, dev):
         Mic_tuning = Tuning(dev)
         if count < RECORD_SECONDS:
             if i < RESPEAKER_RATE / CHUNK * count and i > RESPEAKER_RATE / CHUNK * (count - 1):
-                print("{:02d}".format(0) + ':' + "{:02d}".format(count) + ' ' + str(Mic_tuning.direction))
+                doa = Mic_tuning.direction
+                timestamp = time.time()
+                data_list.append({'doa': doa, 'timestamp': timestamp})
+                print("{:02d}".format(0) + ':' + "{:02d}".format(count) + ' ' + str(doa))
                 count += 1
 
     print("* done recording")
     wf1.close()
+
+    # Write data to a JSON file
+    with open('data.json', 'w') as f:
+        json.dump(data_list, f)
 
 def close_audio_stream(stream, p):
     stream.stop_stream()
