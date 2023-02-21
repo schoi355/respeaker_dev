@@ -21,7 +21,7 @@ This code is to record wave file from Respeaker device and collect DOA with time
 This code is to use an audio file and corresponding json file which are collected by `record_DOA.py`. It sends the audio data to google speech-to-text API, receive transcription, and save the transcription and corresponding DOA in json file. The list in json file includes transcription, word, start time of the word, timestamp (UTC), and DOA. Refer [here](https://github.com/GoogleCloudPlatform/python-docs-samples/tree/ebf05af5900b66d614d0108d106b3ae2db420d8f/speech/microphone) to set up Google Cloud Speech API. 
 
 
-## How to use `respeaker_loca.py` (in progress)
+## How to use `respeaker_local.py` (in progress)
 
 To record voice in `.wav` and DOA and timestamp in `.json`, run `respeaker_local.py` 
 
