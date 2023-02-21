@@ -11,10 +11,10 @@ RESPEAKER_RATE = 16000
 RESPEAKER_CHANNELS = 1 # change base on firmwares, 1_channel_firmware.bin as 1 or 6_channels_firmware.bin as 6
 RESPEAKER_WIDTH = 2
 # run getDeviceInfo.py to get index
-RESPEAKER_INDEX = 1  # refer to input device id
+RESPEAKER_INDEX = 2  # refer to input device id
 CHUNK = 1024
-RECORD_SECONDS = 5 # enter seconds to run
-WAVE_OUTPUT_FILENAME = "file_name.wav" # enter filename here
+RECORD_SECONDS = 50 # enter seconds to run
+WAVE_OUTPUT_FILENAME = "Feb20.wav" # enter filename here
 
 def find_device():
     dev = usb.core.find(idVendor=0x2886, idProduct=0x0018)
@@ -51,15 +51,15 @@ def record_audio(stream, p, dev):
             if i < RESPEAKER_RATE / CHUNK * count and i > RESPEAKER_RATE / CHUNK * (count - 1):
                 doa = Mic_tuning.direction
                 timestamp = time.time()
-                data_list.append({'doa': doa, 'timestamp': timestamp})
-                print("{:02d}".format(0) + ':' + "{:02d}".format(count) + ' ' + str(doa))
+                data_list.append({'doa': doa, 'timestamp': timestamp, 'record_time': count})
+                print('record time:' + "{:02d}".format(count) + ' DOA:' + str(doa))
                 count += 1
 
     print("* done recording")
     wf1.close()
 
     # Write data to a JSON file
-    with open('data.json', 'w') as f:
+    with open('Feb20.json', 'w') as f:
         json.dump(data_list, f)
 
 def close_audio_stream(stream, p):
