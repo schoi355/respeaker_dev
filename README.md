@@ -18,7 +18,7 @@ This code is to record wave file from Respeaker device and collect DOA with time
 
 
 ## How to use `synchronous_transcribe_local_file.py`
-This code is to use an audio file and corresponding json file which are collected by `record_DOA.py`. It sends the audio data to google speech-to-text API, receive transcription, and save the transcription and corresponding DOA in json file. The list in json file includes transcription, word, start time of the word, timestamp (UTC), and DOA. Refer `
+This code is to use an audio file and corresponding json file which are collected by `record_DOA.py`. It sends the audio data to google speech-to-text API, receive transcription, and save the transcription and corresponding DOA in json file. The list in json file includes transcription, word, start time of the word, timestamp (UTC), and DOA. Refer [here](https://github.com/GoogleCloudPlatform/python-docs-samples/tree/ebf05af5900b66d614d0108d106b3ae2db420d8f/speech/microphone) to set up Google Cloud Speech API. 
 
 
 ## How to use `respeaker_loca.py` (in progress)
