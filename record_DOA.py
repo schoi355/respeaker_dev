@@ -34,7 +34,7 @@ def open_audio_stream(p):
 
 def record_audio(stream, p, dev):
     print("* recording")
-
+    cur = 0
     wf1 = wave.open(WAVE_OUTPUT_FILENAME, 'wb')
     wf1.setnchannels(1)
     wf1.setsampwidth(p.get_sample_size(p.get_format_from_width(RESPEAKER_WIDTH)))
@@ -42,24 +42,41 @@ def record_audio(stream, p, dev):
 
     data_list = []
     count = 1
+    wf2 = wave.open("new_file_chunk_0.wav", 'wb')
+    wf2.setnchannels(1)
+    wf2.setsampwidth(p.get_sample_size(p.get_format_from_width(RESPEAKER_WIDTH)))
+    wf2.setframerate(RESPEAKER_RATE)
+
+
     for i in range(0, int(RESPEAKER_RATE / CHUNK * RECORD_SECONDS)):
         data = stream.read(CHUNK)
         wf1.writeframes(data)
-
+        wf2.writeframes(data)
+        
         Mic_tuning = Tuning(dev)
         if count < RECORD_SECONDS:
             if i < RESPEAKER_RATE / CHUNK * count and i > RESPEAKER_RATE / CHUNK * (count - 1):
                 doa = Mic_tuning.direction
                 timestamp = time.time()
-                data_list.append({'doa': doa, 'timestamp': timestamp, 'record_time': count})
-                print('record time:' + "{:02d}".format(count) + ' DOA:' + str(doa))
+                data_list.append({'doa': doa, 'timestamp': timestamp})
+                print("{:02d}".format(0) + ':' + "{:02d}".format(count) + ' ' + str(doa))
                 count += 1
+
+            #saving 10 second chunks
+            if count != 0 and count % 10 == 0:
+                wf2 = wave.open("new_file_chunk_" + str(count) + ".wav", 'wb')
+                wf2.setnchannels(1)
+                wf2.setsampwidth(p.get_sample_size(p.get_format_from_width(RESPEAKER_WIDTH)))
+                wf2.setframerate(RESPEAKER_RATE)
+                print("chunk saved")
+                
+                
 
     print("* done recording")
     wf1.close()
 
     # Write data to a JSON file
-    with open('Feb20.json', 'w') as f:
+    with open('full_json.json', 'w') as f:
         json.dump(data_list, f)
 
 def close_audio_stream(stream, p):
@@ -76,3 +93,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
