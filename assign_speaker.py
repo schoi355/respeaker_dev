@@ -134,6 +134,7 @@ def get_input():
     value = input("Type add ID or stop: ")
     return value
 
+
 def main():
     os.environ['KMP_DUPLICATE_LIB_OK']='True'
     ID_file            = 'assign_speaker/ID.json'
