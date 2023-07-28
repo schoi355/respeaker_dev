@@ -22,5 +22,5 @@ This code is to record wave file from Respeaker device and collect DOA with time
 This code is to record 10 seceond chunk of audio and collect DOA with timestamp and record time in JSON file.
 
 
-## `assign_speaekr.py
+## `assign_speaker.py`
 This code is to assign speakers with their name and match it with their DOA. Find the ID results in `assign_speaker/ID.json` 
