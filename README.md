@@ -24,3 +24,10 @@ This code is to record 10 seceond chunk of audio and collect DOA with timestamp 
 
 ## `assign_speaker.py`
 This code is to assign speakers with their name and match it with their DOA. Find the ID results in `assign_speaker/ID.json` 
+
+
+## `record_DOA_ID_chunks.py`
+This code is similar to `record_DOA_chunks.py`, but adds speaker's name to DOA json file. It needs `ID.json` file to match DOA to the speakers.
+
+## `transcribe_chunks.py`
+This code is to transcribe audio chunks and produces transcription with speaker's name and DOA.
