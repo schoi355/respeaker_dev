@@ -15,6 +15,20 @@ RESPEAKER_INDEX = 5  # refer to input device id
 CHUNK = 1024
 CHUNKSIZE = 10 # sec
 
+def ang_shift(angle):
+    shifted_angle = angle % 360
+    if shifted_angle < 0:
+        shifted_angle += 360
+    return shifted_angle
+
+def ang_shift_backward(angle):
+    if 320 <= angle < 360:
+        shifted_angle = angle - 360
+    else:
+        shifted_angle = angle
+    return shifted_angle
+
+
 # Assign a range of angles for each speaker 
 def assign_angle(number, ID_file):
     angle = int(20) # 20 deg 
@@ -23,7 +37,7 @@ def assign_angle(number, ID_file):
         ID_data = json.load(f)
         if len(ID_data) == number:
             for key in ID_data:
-                angle_range = [ID_data[key]['doa']-angle, ID_data[key]['doa']+angle]
+                angle_range = [ang_shift(ID_data[key]['doa']-angle), ang_shift(ID_data[key]['doa']+angle)]
                 ang_dic[ID_data[key]['ID'][0]] = angle_range
 
             print('The range of angles are assigned:')
@@ -50,7 +64,7 @@ def open_audio_stream(p):
 
 def record_audio(stream, p, dev, num, ID_file, audio_file, doa_file):
     data_list = []
-    count = 1
+    count = 0
 
     ang_dic = assign_angle(num, ID_file)
     print(ang_dic)
@@ -64,8 +78,8 @@ def record_audio(stream, p, dev, num, ID_file, audio_file, doa_file):
         wf.writeframes(data)
         
         Mic_tuning = Tuning(dev)
-        if count < CHUNKSIZE:
-            if i < RESPEAKER_RATE / CHUNK * count and i > RESPEAKER_RATE / CHUNK * (count - 1):
+        if count < CHUNKSIZE*10:
+            if RESPEAKER_RATE / CHUNK / 10 * (count) < i < RESPEAKER_RATE / CHUNK / 10 * (count + 1):
                 # Get DOA
                 doa = Mic_tuning.direction
                 timestamp = time.time()
@@ -73,11 +87,11 @@ def record_audio(stream, p, dev, num, ID_file, audio_file, doa_file):
                 # Assign a speaker according to DOA
                 ID = 'unknown'
                 for key in ang_dic:
-                    if ang_dic[key][0] <= doa <= ang_dic[key][1]:
+                    if ang_shift_backward(ang_dic[key][0]) <= ang_shift_backward(doa) <= ang_shift_backward(ang_dic[key][1]):
                         ID = key
 
-                data_list.append({'doa': doa, 'timestamp': timestamp, 'record_time': count, 'speaker': ID})
-                print("{:02d}".format(0) + ':' + "{:02d}".format(count) + ' ' + str(doa))
+                data_list.append({'doa': doa, 'timestamp': timestamp, 'record_time': count/10, 'speaker': ID})
+                print(str(count/10) + ', ' + str(doa))
                 count += 1
              
             with open (doa_file, 'w') as fj:

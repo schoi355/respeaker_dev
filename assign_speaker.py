@@ -47,12 +47,12 @@ def record_audio(stream, p, dev, record_file, doa_file):
             data = stream.read(CHUNK)
             w.writeframes(data)
             Mic_tuning = Tuning(dev)
-            if count < RECORD_SECONDS:
-                if i < RESPEAKER_RATE / CHUNK * count and i > RESPEAKER_RATE / CHUNK * (count - 1):
+            if count < RECORD_SECONDS*10:
+                if RESPEAKER_RATE / CHUNK / 10 * (count) < i < RESPEAKER_RATE / CHUNK / 10 * (count + 1):
                     doa = Mic_tuning.direction
                     timestamp = time.time()
-                    data_list.append({'doa': doa, 'timestamp': timestamp, 'record_time': count-1})
-                    print('record time:' + "{:02d}".format(count-1) + ' DOA:' + str(doa))
+                    data_list.append({'doa': doa, 'timestamp': timestamp, 'record_time': count/10})
+                    print(str(count/10) + ', ' + str(doa))
                     count += 1
 
         print("* done recording")
@@ -106,7 +106,7 @@ def add_ID(ID_list, transcription_file, count):
         transcription = json.load(j)
 
     # Words that are not saved as IDs
-    words_to_remove = ['name', 'My', 'my', 'favorite', 'favourite', 'animal', 'is', 'number', 'animals', 'numbers', 'a', 'an']
+    words_to_remove = ['name', 'My', 'my', 'favorite', 'favourite', 'animal', 'is', 'number', 'animals', 'numbers', 'a', 'an', 'the', 'and']
     sentence = transcription["text"]
     sentence = sentence.replace(".","").replace(",","")
     words = sentence.split()
@@ -121,10 +121,10 @@ def add_ID(ID_list, transcription_file, count):
                 pass
     doa_array.remove(max(doa_array))
     doa_array.remove(min(doa_array))
-    avg_doa = np.median(doa_array)
+    median_doa = np.median(doa_array)
 
     # Add name, animal, number in the dictionary
-    ID_list['person'+str(count)] = {'doa': avg_doa, 'ID': word_not_removed}
+    ID_list['person'+str(count)] = {'doa': median_doa, 'ID': word_not_removed}
 
     sentence_not_removed = ' '.join(word_not_removed)
     

@@ -36,10 +36,12 @@ def add_doa(doa_file, transcription_file):
 
 	for seg in transcription['segments']:
 		for word in seg["words"]:
-			audio_time = int(word["start"])
+			audio_time = float(word["start"])
 			for dic in doa:
-				doa_time = dic['record_time'] - 1
-				if audio_time - doa_time < 1 and audio_time - doa_time >= 0:
+				doa_time = dic['record_time']
+				
+				if 0 <= audio_time - doa_time < 0.1:
+
 					word.update({'DOA': dic['doa']})
 					word.update({'speaker': dic['speaker']})
 	
@@ -55,15 +57,15 @@ def get_input():
 def main():
 	os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-	iteration = 0
+	iteration = 10
 	input = get_input()
 	input = int(input)
 	# Start recording	
-	while iteration < input*10:
+	while iteration <= input*10:
 		
-		audio_file         = 'dataset/Jul21_2/recorded_data/new_file_chunk_%d.wav'%iteration
-		transcription_file = 'dataset/Jul21_2/transcription/transcript_chunk_%d.json'%iteration
-		doa_file           = 'dataset/Jul21_2/recorded_data/new_file_chunk_1200.json'
+		audio_file         = 'chunks/chunk_%d.wav'%iteration
+		transcription_file = 'chunks/transcription_chunk_%d.json'%iteration
+		doa_file           = 'chunks/DOA_%d.json'%iteration
 		# Transcribe the audio
 		transcribe_file(audio_file, transcription_file)
 		
@@ -74,7 +76,7 @@ def main():
 		print("Chunk " + str(iteration) + " is added")
 		iteration += 10
 	
-	print("Transcrition is done")
+	print("Transcription is done")
 	
 
 
