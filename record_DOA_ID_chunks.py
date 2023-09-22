@@ -16,18 +16,8 @@ CHUNK = 1024
 CHUNKSIZE = 10 # sec
 
 def ang_shift(angle):
-    shifted_angle = angle % 360
-    if shifted_angle < 0:
-        shifted_angle += 360
+    shifted_angle = angle + 360
     return shifted_angle
-
-def ang_shift_backward(angle):
-    if 320 <= angle < 360:
-        shifted_angle = angle - 360
-    else:
-        shifted_angle = angle
-    return shifted_angle
-
 
 # Assign a range of angles for each speaker 
 def assign_angle(number, ID_file):
@@ -37,7 +27,7 @@ def assign_angle(number, ID_file):
         ID_data = json.load(f)
         if len(ID_data) == number:
             for key in ID_data:
-                angle_range = [ang_shift(ID_data[key]['doa']-angle), ang_shift(ID_data[key]['doa']+angle)]
+                angle_range = [ID_data[key]['doa']-angle, ID_data[key]['doa']+angle]
                 ang_dic[ID_data[key]['ID'][0]] = angle_range
 
             print('The range of angles are assigned:')
@@ -87,7 +77,7 @@ def record_audio(stream, p, dev, num, ID_file, audio_file, doa_file):
                 # Assign a speaker according to DOA
                 ID = 'unknown'
                 for key in ang_dic:
-                    if ang_shift_backward(ang_dic[key][0]) <= ang_shift_backward(doa) <= ang_shift_backward(ang_dic[key][1]):
+                    if ang_shift(ang_dic[key][0]) <= ang_shift(doa) <= ang_shift(ang_dic[key][1]):
                         ID = key
 
                 data_list.append({'doa': doa, 'timestamp': timestamp, 'record_time': count/10, 'speaker': ID})
