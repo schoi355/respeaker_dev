@@ -3,23 +3,98 @@ import json
 import os
 import pandas as pd
 import nltk
+import spacy
 from nltk.stem import PorterStemmer
+from datetime import datetime, timedelta
 
 # Initialize NLTK stemmer
 stemmer = PorterStemmer()
 
 app = Flask(__name__)
 
-@app.route('/')
+# Load the spaCy language model
+nlp = spacy.load("en_core_web_sm")
+
+# Function to get the lemma (base form) of a word
+def get_lemma(word):
+    doc = nlp(word)
+    return doc[0].lemma_
+
+@app.route('/check_speakers_not_spoken', methods=['POST'])
+def check_speakers_not_spoken():
+    # Get the start and end times from the request
+    data = request.json
+    start_time = int(data['start_time'])  # Example format: '20'
+    end_time = int(data['end_time']) #60
+
+    preset_speakers = set(['Litong', 'David', 'Faith', 'Hiroto'])
+    # Call a function to check speakers who have not spoken within the specified time frame
+    speakers_not_spoken = check_speakers_within_timeframe(start_time, end_time, preset_speakers)
+
+    if speakers_not_spoken:
+        result = {
+            'message': 'Speakers who did not speak within the specified time frame:',
+            'speakers_not_spoken': speakers_not_spoken
+        }
+    else:
+        result = {
+            'message': 'All speakers spoke within the specified time frame.'
+        }
+
+    return jsonify(result)
+
+def check_speakers_within_timeframe(start_time, end_time, preset_speakers):
+    speakers_not_spoken = set(preset_speakers)
+
+    # Define the range of numbers (10 to 240) for the filenames
+    for number in range(start_time, end_time + 1, 10):
+        # Provide path to transcript chunks here
+        filename = f'transcripts/transcript_chunk_{number}.json'
+        if os.path.exists(filename):
+            # Load the JSON data from the file
+            with open(filename, 'r') as file:
+                data = json.load(file)
+
+                for segment in data['segments']:
+                    segment_id = segment['id']
+                    start_time = segment['start']
+                    end_time = segment['end']
+
+                    # Extract words spoken by each person
+                    words = segment.get('words', [])
+
+                    # Initialize the speaker name for this segment
+                    segment_speaker = None
+
+                    for word in words:
+                        text = word['text']
+                        if 'speaker' in word:
+                            segment_speaker = word['speaker']
+                        if segment_speaker:
+                            speaker_name = segment_speaker
+                        else:
+                            speaker_name = "unknown"
+
+                        # Remove the speaker from the set as they speak
+                        speakers_not_spoken.discard(speaker_name)
+
+    return list(speakers_not_spoken)
+
+
+@app.route('/analysis', methods=['POST'])
 def analyze_transcripts():
-    # Your code for analyzing transcripts here
+
+    data = request.json
+    
+    total_files = int(data['total_files'])  
+    x = total_files * 10 + 1 #last chunk ID + 1
     # Initialize an empty list to store the table data
     all_table_data = []
-    x = 240 + 1 #last chunk ID + 1
+    
     # Define the range of numbers (10 to 240) for the filenames
     for number in range(10, x, 10):
         #Provide path to transcript chunks here
-        filename = f'transcript_chunk_{number}.json'
+        filename = f'transcripts/transcript_chunk_{number}.json'
         if os.path.exists(filename):
             # Load the JSON data from the file
             with open(filename, 'r') as file:
@@ -114,9 +189,9 @@ def analyze_transcripts():
         "Food swamp",
         "food system",
         "insecurity",
-        "health*",
-        "obes*",
-        "garden*",
+        "health",
+        "obese",
+        "garden",
         "access",
         "urban",
         "poverty",
@@ -149,23 +224,27 @@ def analyze_transcripts():
     bag_of_words = [word.lower() for word in bag_of_words]
 
     # Create a dictionary with root words (without wildcards)
-    root_word_dict = {stemmer.stem(word): '*' in word for word in bag_of_words}
-
+    root_word_dict = {get_lemma(word): '*' in word for word in bag_of_words}
+    print(get_lemma("Sovereignty      "))
     # Print the root word dictionary
     print(root_word_dict)
 
     # Initialize a dictionary to store the first occurrence of words from the bag of words
-    first_occurrence = {word: None for word in bag_of_words}
+    first_occurrence = {word: None for word in root_word_dict}
 
     # Iterate through the DataFrame to find the first occurrence of words
     prev = None
     for index, row in df.iterrows():
         words = row['Sentence'].split()
         for word in words:
-            word = stemmer.stem(word)
+            word = get_lemma(word)
             word = word.lower()
-            if word in bag_of_words and first_occurrence[word] is None:
+            if word in root_word_dict and first_occurrence[word] is None:
                 first_occurrence[word] = row['Person']
+
+            if prev and prev + word in root_word_dict and first_occurrence[prev + word] is None:
+                first_occurrence[prev + word] = row['Person']
+
             prev = word
     ans = []
     # Print the number of words spoken by each person and the first person to speak each word
@@ -190,4 +269,4 @@ def analyze_transcripts():
     return jsonify(result)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=8080)
