@@ -13,6 +13,8 @@ import threading
 from queue import Queue
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+import requests
+
 
 RESPEAKER_RATE = 16000
 RESPEAKER_CHANNELS = 1
@@ -94,12 +96,30 @@ def main():
                 doa_file = doa_queue.get()
                 transcription_name = os.path.splitext(os.path.basename(audio_file))[0] + '.json'
                 transcription_file = os.path.join(transcription_directory, transcription_name)
+                iteration = int(os.path.splitext(os.path.basename(audio_file))[0].split('_')[1])
                 time.sleep(10) # Wait until the 10 sec chunk is finished
 
                 transcribe_and_add_doa(model, audio_file, doa_file, transcription_file)
                 print("Transcription: " + transcription_name + " is added")
                 print(f"Removed from queue: {audio_file}")
                 print(f"Removed from queue: {doa_file}")
+
+                url = "http://127.0.0.1:8080/check_speakers_not_spoken"
+                url2 = "http://127.0.0.1:8080/analysis"
+                # Define the data you want to send in the POST request (as a dictionary)
+                if iteration >= 60 and iteration % 30 == 0:
+                    data = {
+                        "start_time": iteration - 60, 
+                        "end_time":  iteration
+                            }
+                    data2 = {
+                    "total_files": iteration, #x here is the total number of chunks we have generated. So if we have our last file x_550.json then we have total 55 files
+        }
+                    # Make the POST request
+                    response = requests.post(url, json=data)
+                    response2 = requests.post(url2, json=data2)
+
+            
 
     except KeyboardInterrupt:
         observer.stop()

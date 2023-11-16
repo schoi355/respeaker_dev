@@ -47,9 +47,9 @@ def check_speakers_within_timeframe(start_time, end_time, preset_speakers):
     speakers_not_spoken = set(preset_speakers)
 
     # Define the range of numbers (10 to 240) for the filenames
-    for number in range(start_time, end_time + 1, 10):
+    for number in range(start_time + 10, end_time + 1, 10):
         # Provide path to transcript chunks here
-        filename = f'transcripts/transcript_chunk_{number}.json'
+        filename = f'dataset/Nov1/transcription/chunk_{number}.json'
         if os.path.exists(filename):
             # Load the JSON data from the file
             with open(filename, 'r') as file:
@@ -78,6 +78,7 @@ def check_speakers_within_timeframe(start_time, end_time, preset_speakers):
                         # Remove the speaker from the set as they speak
                         speakers_not_spoken.discard(speaker_name)
 
+    print(list(speakers_not_spoken))
     return list(speakers_not_spoken)
 
 
@@ -86,15 +87,16 @@ def analyze_transcripts():
 
     data = request.json
     
-    total_files = int(data['total_files'])  
-    x = total_files * 10 + 1 #last chunk ID + 1
+    total_files = data['total_files']  
+    x = total_files + 10
+    # x = total_files * 10 + 1 #last chunk ID + 1
     # Initialize an empty list to store the table data
     all_table_data = []
     
     # Define the range of numbers (10 to 240) for the filenames
     for number in range(10, x, 10):
         #Provide path to transcript chunks here
-        filename = f'transcripts/transcript_chunk_{number}.json'
+        filename = f'dataset/Nov1/transcription/chunk_{number}.json'
         if os.path.exists(filename):
             # Load the JSON data from the file
             with open(filename, 'r') as file:
