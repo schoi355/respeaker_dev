@@ -8,7 +8,7 @@ This repository is under development for
 
 ### Install python packages
 ```
-pip install pandas numpy
+pip install pandas numpy watchdog
 ```
 ### Set up Respeaker
 Refer to [respeaker wiki](https://wiki.seeedstudio.com/ReSpeaker-USB-Mic-Array/).
@@ -39,7 +39,8 @@ pip install git+https://github.com/linto-ai/whisper-timestamped
 
 ### Set up Flask
 ```
-pip install flask nltk
+pip install flask nltk spacy
+python -m spacy download en_core_web_sm
 ```
 
 
