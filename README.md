@@ -22,7 +22,7 @@ source venv/bin/activate
 Then, pip install pyaudio and pyusb. It might need portaudio and usb.
 
 ### Set up Whisper (language model)
-```
+
 Install [whisper-timestamped](https://github.com/linto-ai/whisper-timestamped)
 ```
 pip3 install git+https://github.com/linto-ai/whisper-timestamped
