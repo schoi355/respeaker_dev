@@ -30,7 +30,7 @@ SUBSYSTEM=="usb", MODE="0666"
 
 Install [whisper-timestamped](https://github.com/linto-ai/whisper-timestamped)
 ```
-pip3 install git+https://github.com/linto-ai/whisper-timestamped
+pip install git+https://github.com/linto-ai/whisper-timestamped
 ```
 
 
