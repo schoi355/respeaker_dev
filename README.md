@@ -6,6 +6,10 @@ This repository is under development for
 
 ## Setup
 
+### Install python packages
+```
+pip install pandas numpy
+```
 ### Set up Respeaker
 Refer to [respeaker wiki](https://wiki.seeedstudio.com/ReSpeaker-USB-Mic-Array/).
 Install pyaudio and pyusb
@@ -31,6 +35,11 @@ SUBSYSTEM=="usb", MODE="0666"
 Install [whisper-timestamped](https://github.com/linto-ai/whisper-timestamped)
 ```
 pip install git+https://github.com/linto-ai/whisper-timestamped
+```
+
+### Set up Flask
+```
+pip install flask nltk
 ```
 
 
