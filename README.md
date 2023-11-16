@@ -4,6 +4,22 @@ This repository is under development for
  - Transcribe conversation using whisper
  - Identify speakers' Direction of Angle (DOA) usign Respeaker device
 
+## Setup
+Install pyaudio and pyusb
+```
+pip install pyaudio pyusb
+```
+For raspberry Pi
+```
+sudo apt install python3-pyaudio
+pip install pyusb --break-system-packages
+```
+Install [whisper-timestamped](https://github.com/linto-ai/whisper-timestamped)
+```
+pip3 install git+https://github.com/linto-ai/whisper-timestamped
+```
+
+
 ## How to use
 
 Before running any python script, run `get_index.py`
