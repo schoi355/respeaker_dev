@@ -21,6 +21,11 @@ source venv/bin/activate
 ```
 Then, pip install pyaudio and pyusb. It might need portaudio and usb.
 
+You might need to create a udev rule to ensure that the USB device is accessible by non-root users. Create a new file, for example, /etc/udev/rules.d/99-usb-permissions.rules, and add the following line:
+```
+SUBSYSTEM=="usb", MODE="0666"
+```
+
 ### Set up Whisper (language model)
 
 Install [whisper-timestamped](https://github.com/linto-ai/whisper-timestamped)
