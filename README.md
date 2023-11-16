@@ -5,14 +5,23 @@ This repository is under development for
  - Identify speakers' Direction of Angle (DOA) usign Respeaker device
 
 ## Setup
+
+### Set up Respeaker
+Refer to [respeaker wiki](https://wiki.seeedstudio.com/ReSpeaker-USB-Mic-Array/).
 Install pyaudio and pyusb
 ```
 pip install pyaudio pyusb
 ```
-For raspberry Pi
+For raspberry Pi, using a virtual environment is recommended to isolate dependencies.
 ```
-sudo apt install python3-pyaudio
-pip install pyusb --break-system-packages
+# Create a virtual environment
+python3 -m venv venv
+# Activate the virtual environment
+source venv/bin/activate
+```
+Then, pip install pyaudio and pyusb. It might need portaudio and usb.
+
+### Set up Whisper (language model)
 ```
 Install [whisper-timestamped](https://github.com/linto-ai/whisper-timestamped)
 ```
