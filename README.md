@@ -6,6 +6,11 @@ This repository is under development for
 
 ## Setup
 
+### Install portaudio
+```
+sudo apt install portaudio19-dev
+```
+
 ### Install python packages
 ```
 pip install pandas numpy watchdog
