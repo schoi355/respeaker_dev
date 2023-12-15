@@ -29,6 +29,9 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 Then, pip install pyaudio and pyusb. It might need portaudio and usb.
+```
+sudo apt-get install python3-usb python3-pyaudio
+```
 
 You might need to create a udev rule to ensure that the USB device is accessible by non-root users. Create a new file, for example, /etc/udev/rules.d/99-usb-permissions.rules, and add the following line:
 ```
