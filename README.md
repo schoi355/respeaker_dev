@@ -6,6 +6,8 @@ This repository is under development for
 
 ## Setup
 
+### Clone the repository
+
 ### Install portaudio
 ```
 sudo apt install portaudio19-dev
