@@ -8,6 +8,16 @@ This repository is under development for
 
 ### Clone the repository
 
+### Create a virtual environment for Raspberry Pi
+
+For raspberry Pi, using a virtual environment is recommended to isolate dependencies.
+```
+# Create a virtual environment
+python3 -m venv venv
+# Activate the virtual environment
+source venv/bin/activate
+```
+
 ### Install portaudio
 ```
 sudo apt install portaudio19-dev
@@ -17,22 +27,18 @@ sudo apt install portaudio19-dev
 ```
 pip install pandas numpy watchdog
 ```
+
 ### Set up Respeaker
 Refer to [respeaker wiki](https://wiki.seeedstudio.com/ReSpeaker-USB-Mic-Array/).
 Install pyaudio and pyusb
 ```
 pip install pyaudio pyusb
 ```
-For raspberry Pi, using a virtual environment is recommended to isolate dependencies.
-```
-# Create a virtual environment
-python3 -m venv venv
-# Activate the virtual environment
-source venv/bin/activate
-```
-Then, pip install pyaudio and pyusb. It might need portaudio and usb.
+
+Raspberry Pi might need portaudio and usb.
 ```
 sudo apt-get install python3-usb python3-pyaudio
+pip install pyaudio pyusb
 ```
 
 You might need to create a udev rule to ensure that the USB device is accessible by non-root users. Create a new file, for example, /etc/udev/rules.d/99-usb-permissions.rules, and add the following line:
