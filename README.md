@@ -17,6 +17,10 @@ python3 -m venv venv
 # Activate the virtual environment
 source venv/bin/activate
 ```
+Or remove this
+```
+sudo mv /usr/lib/python3.11/EXTERNALLY-MANAGED /usr/lib/python3.11/EXTERNALLY-MANAGED.old
+```
 
 ### Install portaudio
 ```
