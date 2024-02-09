@@ -13,7 +13,7 @@ RESPEAKER_WIDTH = 2
 # run getDeviceInfo.py to get index
 RESPEAKER_INDEX = 5  # refer to input device id
 CHUNK = 1024
-CHUNKSIZE = 10 # sec
+CHUNKSIZE = 15 # sec
 
 def ang_shift(angle):
     shifted_angle = angle + 360
@@ -103,7 +103,7 @@ def get_sec():
     return value
 
 def main():
-    ID_file  = 'assign_speaker/ID.json'
+    ID_file  = 'dataset/Feb9/assign_speaker/ID.json'
     num = int(get_ID_number())
     sec = int(get_sec())
     iteration = 0
@@ -117,8 +117,8 @@ def main():
             p = pyaudio.PyAudio()
             stream = open_audio_stream(p)
             iteration += CHUNKSIZE
-            audio_file = 'chunks/chunk_%d.wav'%iteration
-            doa_file   = 'chunks/DOA_%d.json'%iteration
+            audio_file = 'dataset/Feb9/recorded_data/chunk_%d.wav'%iteration
+            doa_file   = 'dataset/Feb9/recorded_data/DOA_%d.json'%iteration
 
             print("RECORDING STARTED")
                 
