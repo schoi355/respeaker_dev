@@ -1,27 +1,21 @@
 import json
-import usb.core
-import usb.util
-import pyaudio
-import wave
 import numpy as np
 from tuning import Tuning
 import time
 import os
 import whisper_timestamped as whisper
-import glob
-import threading
 from queue import Queue
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import requests
-
-
+ 
 RESPEAKER_RATE = 16000
 RESPEAKER_CHANNELS = 1
 RESPEAKER_WIDTH = 2
 RESPEAKER_INDEX = 5
 CHUNK = 1024
 RECORD_SECONDS = 7
+
 # Create a queue to hold file paths
 doa_queue = Queue()
 audio_queue = Queue()
@@ -69,15 +63,14 @@ def on_created(event):
             doa_file = file_path
             doa_queue.put(doa_file)
 
-
 def main():
     os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
     
     # Load whisper model
     model = whisper.load_model("base", device="cpu")  # choose a model (tiny, base, small, medium, and large)
 
-    watched_directory       = "dataset/Nov1/recorded_data"
-    transcription_directory = "dataset/Nov1/transcription"
+    watched_directory       = "chunks/"
+    transcription_directory = "transcripts/"
 
     # Create an event handler and observer    
     event_handler = FileSystemEventHandler()
@@ -85,9 +78,14 @@ def main():
     observer = Observer()
     observer.schedule(event_handler, path=watched_directory, recursive=True)
 
+    url = "http://127.0.0.1:8080/check_speakers_not_spoken"
+    url2 = "http://127.0.0.1:8080/analysis"
+
     # Start the directory observer
     print(f"Watching directory: {watched_directory}")
     observer.start()
+    last_iteration = 60
+    os.environ['LAST_ITERATION'] = ""
 
     try:
         while True:
@@ -97,27 +95,25 @@ def main():
                 transcription_name = os.path.splitext(os.path.basename(audio_file))[0] + '.json'
                 transcription_file = os.path.join(transcription_directory, transcription_name)
                 iteration = int(os.path.splitext(os.path.basename(audio_file))[0].split('_')[1])
-                time.sleep(10) # Wait until the 10 sec chunk is finished
+                time.sleep(10)  # Wait until the 10 sec chunk is finished
 
                 transcribe_and_add_doa(model, audio_file, doa_file, transcription_file)
                 print("Transcription: " + transcription_name + " is added")
                 print(f"Removed from queue: {audio_file}")
                 print(f"Removed from queue: {doa_file}")
+                print("New flask has been called at", iteration)
 
-                url = "http://127.0.0.1:8080/check_speakers_not_spoken"
-                url2 = "http://127.0.0.1:8080/analysis"
-                # Define the data you want to send in the POST request (as a dictionary)
-                if iteration >= 60 and iteration % 30 == 0:
-                    data = {
-                        "start_time": iteration - 60, 
-                        "end_time":  iteration
-                            }
-                    data2 = {
-                    "total_files": iteration, #x here is the total number of chunks we have generated. So if we have our last file x_550.json then we have total 55 files
-        }
-                    # Make the POST request
+                # Call url once every 15 seconds
+                if iteration % 15 == 0:
+                    data = {"start_time": iteration - 15, "end_time": iteration}
                     response = requests.post(url, json=data)
+                    
+                #Call url2 once every 300 seconds
+                if iteration % 300 == 0:
+                    data2 = {"total_files": last_iteration}  # Use the last processed iteration
                     response2 = requests.post(url2, json=data2)
+                    print("Response from url2", response2)
+                    break  # Exit the loop after processing all iterations
 
             
 

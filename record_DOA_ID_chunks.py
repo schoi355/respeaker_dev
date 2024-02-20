@@ -6,14 +6,37 @@ import numpy as np
 from tuning import Tuning
 import json
 import time
+from datetime import datetime
+import boto3
+import os
 
 RESPEAKER_RATE = 16000
 RESPEAKER_CHANNELS = 1 # change base on firmwares, 1_channel_firmware.bin as 1 or 6_channels_firmware.bin as 6
 RESPEAKER_WIDTH = 2
 # run getDeviceInfo.py to get index
-RESPEAKER_INDEX = 5  # refer to input device id
+RESPEAKER_INDEX = 1  # refer to input device id
 CHUNK = 1024
 CHUNKSIZE = 15 # sec
+
+
+AWS_ACCESS_KEY_ID = 'AKIA5ILC25FLJDD4PYMI'
+AWS_SECRET_ACCESS_KEY = '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'
+AWS_REGION = 'us-east-2'
+S3_BUCKET_NAME = 'respeaker-recordings'
+
+s3 = boto3.client(
+    's3',
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    region_name=AWS_REGION
+)
+
+def upload_to_s3(local_file_path, s3_path):
+    try:
+        s3.upload_file(local_file_path, S3_BUCKET_NAME, s3_path)
+        print(f'Successfully uploaded {local_file_path} to {s3_path}')
+    except Exception as e:
+        print(f'Error uploading {local_file_path} to {s3_path}: {e}')
 
 def ang_shift(angle):
     shifted_angle = angle + 360
@@ -52,6 +75,7 @@ def open_audio_stream(p):
     )
     return stream
 
+
 def record_audio(stream, p, dev, num, ID_file, audio_file, doa_file):
     data_list = []
     count = 0
@@ -81,7 +105,7 @@ def record_audio(stream, p, dev, num, ID_file, audio_file, doa_file):
                         ID = key
 
                 data_list.append({'doa': doa, 'timestamp': timestamp, 'record_time': count/10, 'speaker': ID})
-                print(str(count/10) + ', ' + str(doa))
+                print(str(count/10) + ', ' + str(doa), " ", ID)
                 count += 1
              
             with open (doa_file, 'w') as fj:
@@ -95,18 +119,35 @@ def close_audio_stream(stream, p):
     p.terminate()
 
 def get_ID_number():
-    value = input("Type number of perople in the table: ")
+    value = input("Type number of people in the table: ")
     return value
 
 def get_sec():
     value = input("Type duration of record in seconds: ")
     return value
 
+def word_to_num(word):
+    mapping = {
+        'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+        'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10
+    }
+    return mapping.get(word.lower(), 0)
+
 def main():
-    ID_file  = 'dataset/Feb9/assign_speaker/ID.json'
+    ID_file  = 'assign_speaker/ID.json'
     num = int(get_ID_number())
     sec = int(get_sec())
+    os.environ['LAST_ITERATION'] = str(sec)
     iteration = 0
+
+    # Load IDs from the ID file
+    with open(ID_file, 'r') as f:
+        ID_data = json.load(f)
+        # Convert word-based numeric IDs to integers and sort them
+        numeric_ids = sorted([word_to_num(info['ID'][2]) for info in ID_data.values()])
+        id_str = '_'.join(map(str, numeric_ids))
+
+
     # Start recording
     while True:
         if iteration >= sec:
@@ -117,16 +158,26 @@ def main():
             p = pyaudio.PyAudio()
             stream = open_audio_stream(p)
             iteration += CHUNKSIZE
-            audio_file = 'dataset/Feb9/recorded_data/chunk_%d.wav'%iteration
-            doa_file   = 'dataset/Feb9/recorded_data/DOA_%d.json'%iteration
+            audio_file = 'chunks/chunk_%d.wav'%iteration
+            doa_file   = 'chunks/DOA_%d.json'%iteration
 
             print("RECORDING STARTED")
                 
             record_audio(stream, p, dev, num, ID_file, audio_file, doa_file)
+
+            date_folder = datetime.now().strftime('%Y-%m-%d')
+            audio_s3_path = f'audio-files/{date_folder}/{id_str}/{os.path.basename(audio_file)}'
+            doa_s3_path = f'doa-files/{date_folder}/{id_str}/{os.path.basename(doa_file)}'
+            
+            # # Upload audio file to S3
+            # upload_to_s3(audio_file, audio_s3_path)
+
+            # # Upload doa file to S3
+            # upload_to_s3(doa_file, doa_s3_path)
+
             close_audio_stream(stream, p)
 
             print(str(iteration) + ' of '+ str(sec) + ' seconds are recorded')
 
 if __name__ == '__main__':
     main()
-

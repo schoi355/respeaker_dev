@@ -6,6 +6,26 @@ import nltk
 import spacy
 from nltk.stem import PorterStemmer
 from datetime import datetime, timedelta
+import boto3
+import os
+import time
+import botocore.exceptions
+from boto3.dynamodb.conditions import Attr
+
+
+
+AWS_ACCESS_KEY_ID = 'AKIA5ILC25FLJDD4PYMI'
+AWS_SECRET_ACCESS_KEY = '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'
+AWS_REGION = 'us-east-2'
+
+dynamodb = boto3.resource(
+    'dynamodb',
+    region_name=AWS_REGION,
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY
+)
+
+table = dynamodb.Table('respeaker_data')
 
 # Initialize NLTK stemmer
 stemmer = PorterStemmer()
@@ -15,6 +35,29 @@ app = Flask(__name__)
 # Load the spaCy language model
 nlp = spacy.load("en_core_web_sm")
 
+
+
+
+def word_to_num(word):
+    mapping = {
+        'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+        'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10
+    }
+    return mapping.get(word.lower(), 0)
+
+
+def get_id_str():
+    ID_file  = 'assign_speaker/ID.json'
+    # Load IDs from the ID file
+    with open(ID_file, 'r') as f:
+        ID_data = json.load(f)
+        # Convert word-based numeric IDs to integers and sort them
+        numeric_ids = sorted([word_to_num(info['ID'][2]) for info in ID_data.values()])
+        id_str = '_'.join(map(str, numeric_ids))
+    
+    return id_str
+
+
 # Function to get the lemma (base form) of a word
 def get_lemma(word):
     doc = nlp(word)
@@ -23,33 +66,83 @@ def get_lemma(word):
 @app.route('/check_speakers_not_spoken', methods=['POST'])
 def check_speakers_not_spoken():
     # Get the start and end times from the request
+
+    # Load the JSON data from the ID.json file
+    with open('assign_speaker/ID.json', 'r') as file:
+        data = json.load(file)
+
+    # Initialize an empty set for preset_speakers
+    preset_speakers = set()
+
+    # Iterate through the data and add the first value of the ID array for each person to the set
+    for person in data.values():
+        if person['ID']:  # Check if the ID list is not empty
+            preset_speakers.add(person['ID'][0]) 
+
     data = request.json
     start_time = int(data['start_time'])  # Example format: '20'
     end_time = int(data['end_time']) #60
 
-    preset_speakers = set(['Litong', 'David', 'Faith', 'Hiroto'])
+    
+    print("Current time to call", end_time)
+
     # Call a function to check speakers who have not spoken within the specified time frame
     speakers_not_spoken = check_speakers_within_timeframe(start_time, end_time, preset_speakers)
 
-    if speakers_not_spoken:
-        result = {
-            'message': 'Speakers who did not speak within the specified time frame:',
-            'speakers_not_spoken': speakers_not_spoken
-        }
-    else:
-        result = {
-            'message': 'All speakers spoke within the specified time frame.'
-        }
+    speakers_not_spoken_result = json.dumps(speakers_not_spoken)
+    
+    # DynamoDB update logic
+    id_str = get_id_str()
+    cur_date_formatted = datetime.now().strftime('%Y-%m-%d')
+    cur_time_formatted = datetime.now().strftime('%H:%M:%S')
 
+    try:
+        # Fetch the current item based on group_id
+        response = table.get_item(Key={'group_id': id_str})
+        item = response.get('Item')
+
+        if item:
+            # Ensure current date's map exists directly within the item
+            if cur_date_formatted not in item:
+                item[cur_date_formatted] = {}
+
+            # Add the new result to the 'check_speakers_not_spoken' section within the current date
+            cur_date_data = item[cur_date_formatted]
+            cur_date_data.setdefault('check_speakers_not_spoken', {})
+            cur_date_data['check_speakers_not_spoken'][f"Results_{cur_time_formatted}"] = speakers_not_spoken_result
+
+            # Update the item in the table
+            table.put_item(Item=item)
+        else:
+            # If the item does not exist, create a new one with the date directly under group_id
+            new_item = {
+                'group_id': id_str,
+                cur_date_formatted: {
+                    'check_speakers_not_spoken': {
+                        f"Results_{cur_time_formatted}": speakers_not_spoken_result
+                    }
+                }
+            }
+            table.put_item(Item=new_item)
+
+    except botocore.exceptions.ClientError as error:
+        # Handle the exception
+        print(f"An error occurred: {error}")
+
+    result = {
+        'message': 'Check for speakers not spoken completed and stored in DynamoDB.',
+        'speakers_not_spoken': speakers_not_spoken  # Assuming speakers_not_spoken is the list of speakers
+    }
+    
     return jsonify(result)
 
 def check_speakers_within_timeframe(start_time, end_time, preset_speakers):
     speakers_not_spoken = set(preset_speakers)
 
     # Define the range of numbers (10 to 240) for the filenames
-    for number in range(start_time + 10, end_time + 1, 10):
+    for number in range(start_time, end_time + 1, 15):
         # Provide path to transcript chunks here
-        filename = f'dataset/Nov1/transcription/chunk_{number}.json'
+        filename = f'transcripts/chunk_{number}.json'
         if os.path.exists(filename):
             # Load the JSON data from the file
             with open(filename, 'r') as file:
@@ -80,23 +173,37 @@ def check_speakers_within_timeframe(start_time, end_time, preset_speakers):
 
     print(list(speakers_not_spoken))
     return list(speakers_not_spoken)
-
+  
 
 @app.route('/analysis', methods=['POST'])
 def analyze_transcripts():
 
+
+    # Load the JSON data from the ID.json file
+    with open('assign_speaker/ID.json', 'r') as file:
+        data = json.load(file)
+
+    # Initialize an empty set for preset_speakers
+    preset_speakers = set()
+
+    # Iterate through the data and add the first value of the ID array for each person to the set
+    for person in data.values():
+        if person['ID']:  # Check if the ID list is not empty
+            preset_speakers.add(person['ID'][0]) 
+
+
     data = request.json
     
-    total_files = data['total_files']  
-    x = total_files + 10
-    # x = total_files * 10 + 1 #last chunk ID + 1
+    total_files = int(data['total_files'])  
+    x = total_files + 1 #last chunk ID + 1
+    print("last_chunk_id", x)
     # Initialize an empty list to store the table data
     all_table_data = []
     
-    # Define the range of numbers (10 to 240) for the filenames
-    for number in range(10, x, 10):
+    # Define the range of numbers (105 to 240) for the filenames
+    for number in range(15, x, 15):
         #Provide path to transcript chunks here
-        filename = f'dataset/Nov1/transcription/chunk_{number}.json'
+        filename = f'transcripts/chunk_{number}.json'
         if os.path.exists(filename):
             # Load the JSON data from the file
             with open(filename, 'r') as file:
@@ -177,9 +284,6 @@ def analyze_transcripts():
     # Drop duplicate file names from the 'File Names' column
     df['File Names'] = df['File Names'].apply(lambda x: ', '.join(sorted(set(x.split(', ')))))
 
-    # Print or use the DataFrame as needed
-    # print(df)
-
     # Calculate the number of words spoken by each person
     df['Word Count'] = df['Sentence'].apply(lambda x: len(x.split()))
 
@@ -227,9 +331,7 @@ def analyze_transcripts():
 
     # Create a dictionary with root words (without wildcards)
     root_word_dict = {get_lemma(word): '*' in word for word in bag_of_words}
-    print(get_lemma("Sovereignty      "))
-    # Print the root word dictionary
-    print(root_word_dict)
+
 
     # Initialize a dictionary to store the first occurrence of words from the bag of words
     first_occurrence = {word: None for word in root_word_dict}
@@ -249,25 +351,67 @@ def analyze_transcripts():
 
             prev = word
     ans = []
-    # Print the number of words spoken by each person and the first person to speak each word
+    word_counts_result = {speaker: 0 for speaker in preset_speakers}
+
+    # Update the word counts for speakers who have spoken
     for person, group in df.groupby('Person'):
         word_count = group['Word Count'].sum()
-        print(f"{person} spoke {word_count} words.")
-        ans.append(f"{person} spoke {word_count} words.")
-
+        # Update the count for this person
+        word_counts_result[person] = int(word_count)
     
     for word, person in first_occurrence.items():
         if person:
             ans.append(f"{person} spoke the word '{word}' first.")
-            print(f"{person} spoke the word '{word}' first.")
+            #print(f"{person} spoke the word '{word}' first.")
         else:
             ans.append(f"The word '{word}' was not spoken.")
-            print(f"The word '{word}' was not spoken.")
+            #print(f"The word '{word}' was not spoken.")
+
+    # Prepare the separate results for word counts and first words spoken
+    word_counts_result = {person: int(group['Word Count'].sum().item()) for person, group in df.groupby('Person')}
+    first_words_spoken_result = first_occurrence
+
+    id_str = get_id_str()
+    cur_date_formatted = datetime.now().strftime('%Y-%m-%d')
+    cur_time_formatted = datetime.now().strftime('%H:%M:%S')
+
+    try:
+        response = table.get_item(Key={'group_id': id_str})
+        item = response.get('Item')
+
+        if item:
+            # Ensure current date exists directly within the item
+            cur_date_data = item.setdefault(cur_date_formatted, {})
+        else:
+            # If the item does not exist, create a new structure for it
+            cur_date_data = {}
+            item = {
+                'group_id': id_str,
+                cur_date_formatted: cur_date_data
+            }
+
+        # Update word counts and first words spoken in separate layers within the current date
+        cur_date_data.setdefault('word_counts', {})
+        cur_date_data['word_counts'][f"Results_{cur_time_formatted}"] = json.dumps(word_counts_result)
+        
+        cur_date_data.setdefault('first_words_spoken', {})
+        if first_words_spoken_result:  # Check if the result is not empty before updating
+            cur_date_data['first_words_spoken'][f"Results_{cur_time_formatted}"] = json.dumps(first_words_spoken_result)
+        else:
+            cur_date_data['first_words_spoken'][f"Results_{cur_time_formatted}"] = "{}"
+
+        # Update or create the item in the table
+        table.put_item(Item=item)
+
+    except botocore.exceptions.ClientError as error:
+        print(f"An error occurred: {error}")
 
     result = {
-        'message': 'Analysis completed.',
-        'data': ans  # Replace with your actual analysis result
+        'message': 'Analysis completed and stored in DynamoDB.',
+        'word_counts': word_counts_result,
+        'first_words_spoken': first_words_spoken_result
     }
+    
     return jsonify(result)
 
 if __name__ == '__main__':
