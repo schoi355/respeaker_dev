@@ -8,6 +8,8 @@ This repository is under development for
 
 ### Clone the repository
 
+Make sure you have an access to this private repository.
+
 ### Create a virtual environment for Raspberry Pi
 
 For raspberry Pi, using a virtual environment is recommended to isolate dependencies.
