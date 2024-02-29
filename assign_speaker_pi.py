@@ -15,7 +15,7 @@ RESPEAKER_RATE = 16000
 RESPEAKER_CHANNELS = 1 # change base on firmwares, 1_channel_firmware.bin as 1 or 6_channels_firmware.bin as 6
 RESPEAKER_WIDTH = 2
 # run getDeviceInfo.py to get index
-RESPEAKER_INDEX = 5  # refer to input device id
+RESPEAKER_INDEX = 1  # refer to input device id
 CHUNK = 1024
 RECORD_SECONDS = 8 # enter seconds to run
 
@@ -128,7 +128,7 @@ def add_ID(ID_list, doa_file, transcription_file, count):
         data = json.load(j)
 
     # Words that are not saved as IDs
-    words_to_remove = ['name', 'My', 'my', 'favorite', 'favourite', 'animal', 'is', 'number', 'animals', 'numbers', 'a', 'an', 'the', 'and']
+    words_to_remove = ['name', 'My', 'my', 'favorite', 'favourite', 'animal', 'is', 'number', 'animals', 'numbers', 'a', 'an', 'the', 'and', 'And', 'Hi']
     for transcription in data['transcription']:
         for item in transcription:
             if 'text' == item:
@@ -153,7 +153,7 @@ def get_input():
 
 def main():
     os.environ['KMP_DUPLICATE_LIB_OK']='True'
-    ID_file            = 'dataset/Feb9/assign_speaker/ID.json'
+    ID_file            = 'dataset/Feb23/assign_speaker/ID.json'
     ID_list = {}
     model = "base.en"
 
@@ -168,9 +168,9 @@ def main():
             break
         if input == 'add ID':
             iteration += 1
-            audio_file         = 'dataset/Feb9/assign_speaker/ID%d.wav'%iteration
-            transcription_file = 'dataset/Feb9/assign_speaker/ID%d.wav.json'%iteration
-            doa_file           = 'dataset/Feb9/assign_speaker/doa%d.json'%iteration
+            audio_file         = 'dataset/Feb23/assign_speaker/ID%d.wav'%iteration
+            transcription_file = 'dataset/Feb23/assign_speaker/ID%d.wav.json'%iteration
+            doa_file           = 'dataset/Feb23/assign_speaker/doa%d.json'%iteration
 
             # record audio
             dev = find_device()

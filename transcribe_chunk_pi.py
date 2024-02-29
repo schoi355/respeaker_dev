@@ -129,6 +129,10 @@ def main():
     # Start the directory observer
     print(f"Watching directory: {watched_directory}")
     observer.start()
+    last_iteration = 60
+    os.environ['LAST_ITERATION'] = ""
+    url = "http://127.0.0.1:8080/check_speakers_not_spoken"
+    url2 = "http://127.0.0.1:8080/analysis"
 
     try:
         while True:
@@ -144,21 +148,19 @@ def main():
                 print("Transcription: " + transcription_name + " is added")
                 print(f"Removed from queue: {audio_file}")
                 print(f"Removed from queue: {doa_file}")
+                print("New flask has been called at", iteration)
 
-                url = "http://127.0.0.1:8080/check_speakers_not_spoken"
-                url2 = "http://127.0.0.1:8080/analysis"
-                # Define the data you want to send in the POST request (as a dictionary)
-                if iteration >= 60 and iteration % 30 == 0:
-                    data = {
-                        "start_time": iteration - 60, 
-                        "end_time":  iteration
-                            }
-                    data2 = {
-                    "total_files": iteration, #x here is the total number of chunks we have generated. So if we have our last file x_550.json then we have total 55 files
-        }
-                    # Make the POST request
+                # Call url once every 15 seconds
+                if iteration % 15 == 0:
+                    data = {"start_time": iteration - 15, "end_time": iteration}
                     response = requests.post(url, json=data)
+                    
+                #Call url2 once every 300 seconds
+                if iteration % 300 == 0:
+                    data2 = {"total_files": last_iteration}  # Use the last processed iteration
                     response2 = requests.post(url2, json=data2)
+                    print("Response from url2", response2)
+                    break  # Exit the loop after processing all iterations
 
             
 
