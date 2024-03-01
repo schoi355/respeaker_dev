@@ -61,6 +61,12 @@ pip install flask nltk spacy
 python -m spacy download en_core_web_sm
 ```
 
+### Set up AWS
+```
+pip install boto3
+```
+
+
 
 ## How to use
 
