@@ -12,6 +12,7 @@ import time
 import botocore.exceptions
 from boto3.dynamodb.conditions import Attr
 
+DIR_NAME = 'dataset/Mar1/'
 
 
 AWS_ACCESS_KEY_ID = 'AKIA5ILC25FLJDD4PYMI'
@@ -47,12 +48,12 @@ def word_to_num(word):
 
 
 def get_id_str():
-    ID_file  = 'dataset/Feb23/assign_speaker/ID.json'
+    ID_file  = DIR_NAME + 'assign_speaker/ID.json'
     # Load IDs from the ID file
     with open(ID_file, 'r') as f:
         ID_data = json.load(f)
         # Convert word-based numeric IDs to integers and sort them
-        numeric_ids = sorted([word_to_num(info['ID'][2]) for info in ID_data.values()])
+        numeric_ids = sorted([word_to_num(info['ID'][0]) for info in ID_data.values()])
         id_str = '_'.join(map(str, numeric_ids))
     
     return id_str
@@ -68,7 +69,7 @@ def check_speakers_not_spoken():
     # Get the start and end times from the request
 
     # Load the JSON data from the ID.json file
-    with open('dataset/Feb23/assign_speaker/ID.json', 'r') as file:
+    with open(DIR_NAME + 'assign_speaker/ID.json', 'r') as file:
         data = json.load(file)
 
     # Initialize an empty set for preset_speakers
@@ -142,7 +143,7 @@ def check_speakers_within_timeframe(start_time, end_time, preset_speakers):
     # Define the range of numbers (10 to 240) for the filenames
     for number in range(start_time, end_time + 1, 15):
         # Provide path to transcript chunks here
-        filename = f'dataset/Feb9/recorded_data/chunk_{number}.wav.json'
+        filename = DIR_NAME + f'recorded_data/chunk_{number}.wav.json'
         if os.path.exists(filename):
             # Load the JSON data from the file
             with open(filename, 'r') as file:
@@ -156,6 +157,9 @@ def check_speakers_within_timeframe(start_time, end_time, preset_speakers):
                     # Extract words spoken by each person
                     texts = segment['text']
                     words = texts.split()
+
+                    print(segment['text'])
+                    print(segment['speaker'])
 
                     # Initialize the speaker name for this segment
                     segment_speaker = None
@@ -180,7 +184,7 @@ def analyze_transcripts():
 
 
     # Load the JSON data from the ID.json file
-    with open('dataset/Feb23/assign_speaker/ID.json', 'r') as file:
+    with open(DIR_NAME + 'assign_speaker/ID.json', 'r') as file:
         data = json.load(file)
 
     # Initialize an empty set for preset_speakers
@@ -203,7 +207,7 @@ def analyze_transcripts():
     # Define the range of numbers (105 to 240) for the filenames
     for number in range(15, x, 15):
         #Provide path to transcript chunks here
-        filename = f'dataset/Feb9/recorded_data/chunk_{number}.wav.json'
+        filename = DIR_NAME + 'recorded_data/chunk_{number}.wav.json'
         if os.path.exists(filename):
             # Load the JSON data from the file
             with open(filename, 'r') as file:

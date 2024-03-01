@@ -6,6 +6,7 @@ import nltk
 import spacy
 from nltk.stem import PorterStemmer
 from datetime import datetime, timedelta
+DIR_NAME = 'dataset/Mar1/'
 
 # Initialize NLTK stemmer
 stemmer = PorterStemmer()
@@ -50,7 +51,7 @@ def check_speakers_within_timeframe(start_time, end_time, preset_speakers):
     # Define the range of numbers (15 to 240) for the filenames
     for number in range(start_time + 15, end_time + 1, 15):
         # Provide path to transcript chunks here
-        filename = f'dataset/Feb9/recorded_data/chunk_{number}.wav.json'
+        filename = DIR_NAME+f'recorded_data/chunk_{number}.wav.json'
         if os.path.exists(filename):
             # Load the JSON data from the file
             with open(filename, 'r') as file:
@@ -95,7 +96,7 @@ def analyze_transcripts():
     # Define the range of numbers (10 to 240) for the filenames
     for number in range(10, x, 10):
         #Provide path to transcript chunks here
-        filename = f'dataset/Feb9/recorded_data/chunk_{number}.wav.json'
+        filename = DIR_NAME + f'recorded_data/chunk_{number}.wav.json'
         if os.path.exists(filename):
             # Load the JSON data from the file
             with open(filename, 'r') as file:

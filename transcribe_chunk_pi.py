@@ -10,7 +10,6 @@ import numpy as np
 from tuning import Tuning
 import time
 import os
-import whisper_timestamped as whisper
 import glob
 import threading
 from queue import Queue
@@ -115,10 +114,17 @@ def on_created(event):
 
 def main():
     os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+
+    dir_name = input("Type a name of directory: ")
+    dir_path = dir_name+'/recorded_data/'
+
+    if os.path.exists(dir_path) and os.path.isdir(dir_path):
+        print("The directory path is: " + dir_path)
+    else:
+        print("The directory does not exist. Create a directory and try again")
     
     model = "tiny.en"
-    watched_directory       = "dataset/Feb9/recorded_data"
-    transcription_directory = "dataset/Feb9/recorded_data"
+    watched_directory       = dir_path
 
     # Create an event handler and observer    
     event_handler = FileSystemEventHandler()
@@ -140,7 +146,7 @@ def main():
                 audio_file = audio_queue.get()
                 doa_file = doa_queue.get()
                 transcription_name = os.path.splitext(os.path.basename(audio_file))[0] + '.wav.json'
-                transcription_file = os.path.join(transcription_directory, transcription_name)
+                transcription_file = os.path.join(watched_directory, transcription_name)
                 iteration = int(os.path.splitext(os.path.basename(audio_file))[0].split('_')[1])
                 time.sleep(15) # Wait until the 10 sec chunk is finished
 

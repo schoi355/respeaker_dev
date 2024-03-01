@@ -42,9 +42,9 @@ def open_audio_stream(p):
     return stream
 
 # Record audio, save audio in wave file, save DOA in json file
-def record_audio(stream, p, dev, record_file, doa_file):
+def record_audio(stream, p, dev, record_file, doa_file, std_id):
     with wave.open(record_file, 'wb') as w:
-        print("Say 'My name is 000, my favorite animal is 000, my favorite number is 000' in 6 seconds")
+        print("Say 'My name is 000. My favorite animal is 000. My student ID is 000")
         w.setnchannels(1)
         w.setsampwidth(p.get_sample_size(p.get_format_from_width(RESPEAKER_WIDTH)))
         w.setframerate(RESPEAKER_RATE)
@@ -120,7 +120,7 @@ def find_doa(doa_file, transcription_file):
 
 
 # Add IDs in the dictionary
-def add_ID(ID_list, doa_file, transcription_file, count):
+def add_ID(ID_list, doa_file, transcription_file, std_id):
     median_doa = find_doa(doa_file, transcription_file)
     words_not_removed = []
 
@@ -128,7 +128,7 @@ def add_ID(ID_list, doa_file, transcription_file, count):
         data = json.load(j)
 
     # Words that are not saved as IDs
-    words_to_remove = ['name', 'My', 'my', 'favorite', 'favourite', 'animal', 'is', 'number', 'animals', 'numbers', 'a', 'an', 'the', 'and', 'And', 'Hi']
+    words_to_remove = ['','name', 'My', 'my', 'favorite', 'favourite', 'animal', 'is', 'number', 'animals', 'numbers', 'a', 'an', 'the', 'and', 'And', 'Hi']
     for transcription in data['transcription']:
         for item in transcription:
             if 'text' == item:
@@ -138,55 +138,57 @@ def add_ID(ID_list, doa_file, transcription_file, count):
                 word_not_removed = [word for word in words if word not in words_to_remove]
                 words_not_removed.extend(word_not_removed)
                                                                                       
-    print(words_not_removed)
+    
     # Add name, animal, number in the dictionary
-    ID_list['person'+str(count)] = {'doa': median_doa, 'ID': words_not_removed}
-
+    ID_list['person'+std_id] = {'doa': median_doa, 'ID': std_id}
     sentence_not_removed = ' '.join(words_not_removed)
     
-    return sentence_not_removed, ID_list, median_doa
-    
-def get_input():
-    value = input("Type add ID or stop: ")
-    return value
+    print('DOA of student ' + std_id + ' is ' + str(median_doa))
+
+    return ID_list, median_doa
 
 
 def main():
     os.environ['KMP_DUPLICATE_LIB_OK']='True'
-    ID_file            = 'dataset/Feb23/assign_speaker/ID.json'
+
+    dir_name = input("Type a name of directory: ")
+    dir_path = dir_name+'/assign_speaker/'
+
+    if os.path.exists(dir_path) and os.path.isdir(dir_path):
+        print("The directory path is: " + dir_path)
+    else:
+        print("The directory does not exist. Create a directory and try again")
+
+    ID_file            = dir_path+'ID.json'
     ID_list = {}
     model = "base.en"
 
-    iteration = 0
     # Start recording
     while True:
-        input = get_input()
-        if input == 'stop':
+        value = input("Type add ID or stop: ")
+        if value == 'stop':
             with open(ID_file, 'a') as i:
                 json.dump(ID_list, i)
             print("Assigning speakers is done")
             break
-        if input == 'add ID':
-            iteration += 1
-            audio_file         = 'dataset/Feb23/assign_speaker/ID%d.wav'%iteration
-            transcription_file = 'dataset/Feb23/assign_speaker/ID%d.wav.json'%iteration
-            doa_file           = 'dataset/Feb23/assign_speaker/doa%d.json'%iteration
-
+        if value == 'add ID':
+            std_id = input('Type the student ID: ')
+            audio_file         = dir_path+'ID'+std_id+'.wav'
+            transcription_file = dir_path+'ID'+std_id+'.wav.json'
+            doa_file           = dir_path+'doa'+std_id+'.json'
             # record audio
             dev = find_device()
             p = pyaudio.PyAudio()
             stream = open_audio_stream(p)
-            record_audio(stream, p, dev, audio_file, doa_file)
+            record_audio(stream, p, dev, audio_file, doa_file, std_id)
             close_audio_stream(stream, p)
 
             # Transcribe the audio
             process_audio(audio_file, model)
 
             # Create ID file 
-            ID, ID_list, median_doa = add_ID(ID_list, doa_file, transcription_file, iteration)
+            ID_list, median_doa = add_ID(ID_list, doa_file, transcription_file, std_id)
 
-            
-            print("Speaker (" + ID + ") is added from " + str(median_doa))
         else:
             print("Invalid input. Please try again.")
     
