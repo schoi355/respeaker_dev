@@ -103,4 +103,5 @@ Now to connect, on the host computer open a terminal window and type in
 ```
 ssh username@raspberrypi.local
 ```
-Change `username` to username of the pi, for example, `respeaker`.
+When it asks for the password, type the password of the pi, for example, `0000`. Change `username` to username of the pi, for example, `respeaker`.
+If you want to terminate ssh, type `exit` on the terminal
