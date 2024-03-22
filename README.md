@@ -68,7 +68,7 @@ pip install boto3
 
 
 
-## How to use
+### How to use
 
 Before running any python script, run `get_index.py`
 ```
@@ -95,3 +95,12 @@ This code is similar to `record_DOA_chunks.py`, but adds speaker's name to DOA j
 
 ## `transcribe_chunks.py`
 This code is to transcribe audio chunks and produces transcription with speaker's name and DOA.
+
+### Set up Raspberry pi ssh
+To enable SSH via the Desktop, go to the `start menu` > `Preferences` > `Raspberry Pi Configuration`. Now click on `Interfaces` and click `enable` next to `SSH` and click `OK`.
+
+Now to connect, on the host computer open a terminal window and type in
+```
+ssh username@raspberrypi.local
+```
+Change `username` to username of the pi, for example, `respeaker`.
