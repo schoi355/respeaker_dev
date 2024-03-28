@@ -105,3 +105,7 @@ ssh username@raspberrypi.local
 ```
 When it asks for the password, type the password of the pi, for example, `0000`. Change `username` to username of the pi, for example, `respeaker`.
 If you want to terminate ssh, type `exit` on the terminal
+
+----------------------------------------------------------------------------------------
+### Mac address for Pi
+pi2 d8:3a:dd:f2:84:6f
