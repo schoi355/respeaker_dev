@@ -108,4 +108,6 @@ If you want to terminate ssh, type `exit` on the terminal
 
 ----------------------------------------------------------------------------------------
 ### Mac address for Pi
+pi1 d8:3a:dd:f3:3d:dd
 pi2 d8:3a:dd:f2:84:6f
+pi3 d8:3a:dd:e8:4b:a2
