@@ -214,10 +214,10 @@ def update_id_json(id_file, unknown_speakers):
 
 def main():
 
-    # subprocess.run(["python", "assign_speaker.py"], check=True)
+    subprocess.run(["python", "assign_speaker.py"], check=True)
     
     # # After assign_speaker.py completes, proceed with the rest of this script
-    # print("assign_speaker.py has finished. Proceeding with the next part.")
+    print("assign_speaker.py has finished. Proceeding with the next part.")
 
 
     ID_file  = 'assign_speaker/ID.json'
