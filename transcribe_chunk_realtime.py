@@ -10,7 +10,7 @@ from watchdog.events import FileSystemEventHandler
 import requests
  
 RESPEAKER_RATE = 16000
-RESPEAKER_CHANNELS = 1
+RESPEAKER_CHANNELS = 1  
 RESPEAKER_WIDTH = 2
 RESPEAKER_INDEX = 5
 CHUNK = 1024
@@ -80,11 +80,8 @@ def main():
 
     url = "http://127.0.0.1:8080/check_speakers_not_spoken"
     url2 = "http://127.0.0.1:8080/analysis"
-
-    # Start the directory observer
     print(f"Watching directory: {watched_directory}")
     observer.start()
-    last_iteration = 60
     os.environ['LAST_ITERATION'] = ""
 
     try:
@@ -103,18 +100,17 @@ def main():
                 print(f"Removed from queue: {doa_file}")
                 print("New flask has been called at", iteration)
 
-                # Call url once every 15 seconds
-                if iteration % 15 == 0:
+                # Call url once every 60 seconds
+                if iteration % 60 == 0:
                     data = {"start_time": iteration - 15, "end_time": iteration}
                     response = requests.post(url, json=data)
                     
                 #Call url2 once every 300 seconds
-                if iteration % 300 == 0:
-                    data2 = {"total_files": last_iteration}  # Use the last processed iteration
+                if iteration % 300:
+                    data2 = {"total_files": iteration}  # Use the last processed iteration
                     response2 = requests.post(url2, json=data2)
                     print("Response from url2", response2)
-                    break  # Exit the loop after processing all iterations
-
+                    
             
 
     except KeyboardInterrupt:
