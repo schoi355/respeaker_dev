@@ -36,13 +36,12 @@ app = Flask(__name__)
 nlp = spacy.load("en_core_web_sm")
 
 
-
-
 def word_to_num(word):
     mapping = {
         'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
-        'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10
-    }
+        'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8
+, '9': 9    }
+    
     return mapping.get(word.lower(), 0)
 
 
@@ -55,6 +54,7 @@ def get_id_str():
         numeric_ids = sorted([word_to_num(info['ID'][2]) for info in ID_data.values()])
         id_str = '_'.join(map(str, numeric_ids))
     
+    id_str = "Apple"
     return id_str
 
 
@@ -133,6 +133,8 @@ def check_speakers_not_spoken():
         'message': 'Check for speakers not spoken completed and stored in DynamoDB.',
         'speakers_not_spoken': speakers_not_spoken  # Assuming speakers_not_spoken is the list of speakers
     }
+
+    print(speakers_not_spoken)
     
     return jsonify(result)
 
@@ -386,7 +388,7 @@ def analyze_transcripts():
             # If the item does not exist, create a new structure for it
             cur_date_data = {}
             item = {
-                'group_id': id_str,
+                'group_id': "Apple",
                 cur_date_formatted: cur_date_data
             }
 
@@ -412,6 +414,8 @@ def analyze_transcripts():
         'first_words_spoken': first_words_spoken_result
     }
     
+    print(first_words_spoken_result)
+
     return jsonify(result)
 
 if __name__ == '__main__':
