@@ -128,3 +128,8 @@ Additionally, there is a reported issue with Wayland compositor, so disable Wayl
 sudo raspi-config
 Advanced Options -> Wayland -> X11 -> OK -> Finish -> Yes (to reboot)
 ```
+
+----------------------------------------------------------------------------------------
+## AWS
+
+https://uiuc-education-tissenbaum.signin.aws.amazon.com/console
