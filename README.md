@@ -133,3 +133,24 @@ Advanced Options -> Wayland -> X11 -> OK -> Finish -> Yes (to reboot)
 ## AWS
 
 https://uiuc-education-tissenbaum.signin.aws.amazon.com/console
+
+----------------------------------------------------------------------------------------
+## Buttonshim
+- Enable I2C communication.
+```
+sudo raspi-config
+```
+Select Interfacing options -> I2C, choose <Yes> and hit Enter, then go to Finish and reboot.
+
+- Install Buttonshim.
+Activate the virtual environment. Then, install buttonshim. Refer to [buttonshim](https://github.com/pimoroni/button-shim).
+
+```
+curl https://get.pimoroni.com/buttonshim | bash
+```
+
+On Raspberian,
+```
+sudo apt-get install python3-buttonshim
+venv/bin/pip install buttonshim smbus
+```
