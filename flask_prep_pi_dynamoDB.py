@@ -11,9 +11,8 @@ import os
 import time
 import botocore.exceptions
 from boto3.dynamodb.conditions import Attr
-
-DIR_NAME = 'dataset/Mar1/'
-
+import sys
+import argparse
 
 AWS_ACCESS_KEY_ID = 'AKIA5ILC25FLJDD4PYMI'
 AWS_SECRET_ACCESS_KEY = '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'
@@ -41,14 +40,13 @@ nlp = spacy.load("en_core_web_sm")
 
 def word_to_num(word):
     mapping = {
-        'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
-        'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10
-    }
+        'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 
+        'nine': 9, 'ten': 10, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9}
     return mapping.get(word.lower(), 0)
 
 
-def get_id_str():
-    ID_file  = DIR_NAME + 'assign_speaker/ID.json'
+def get_id_str(DIR_NAME):
+    ID_file  = DIR_NAME + '/assign_speaker/ID.json'
     # Load IDs from the ID file
     with open(ID_file, 'r') as f:
         ID_data = json.load(f)
@@ -56,6 +54,7 @@ def get_id_str():
         numeric_ids = sorted([word_to_num(info['ID'][0]) for info in ID_data.values()])
         id_str = '_'.join(map(str, numeric_ids))
     
+    id_str = "Apple"
     return id_str
 
 
@@ -66,10 +65,14 @@ def get_lemma(word):
 
 @app.route('/check_speakers_not_spoken', methods=['POST'])
 def check_speakers_not_spoken():
+    parser = argparse.ArgumentParser(description="directory")
+    parser.add_argument("-d", "--directory", required=True, help="directory that will contain the dataset")
+    args = parser.parse_args()
+    DIR_NAME = args.directory
     # Get the start and end times from the request
 
     # Load the JSON data from the ID.json file
-    with open(DIR_NAME + 'assign_speaker/ID.json', 'r') as file:
+    with open(DIR_NAME + '/assign_speaker/ID.json', 'r') as file:
         data = json.load(file)
 
     # Initialize an empty set for preset_speakers
@@ -78,7 +81,7 @@ def check_speakers_not_spoken():
     # Iterate through the data and add the first value of the ID array for each person to the set
     for person in data.values():
         if person['ID']:  # Check if the ID list is not empty
-            preset_speakers.add(person['ID'][0]) 
+            preset_speakers.add(person['ID']) 
 
     data = request.json
     start_time = int(data['start_time'])  # Example format: '20'
@@ -86,14 +89,13 @@ def check_speakers_not_spoken():
 
     
     print("Current time to call", end_time)
-
     # Call a function to check speakers who have not spoken within the specified time frame
     speakers_not_spoken = check_speakers_within_timeframe(start_time, end_time, preset_speakers)
 
     speakers_not_spoken_result = json.dumps(speakers_not_spoken)
     
     # DynamoDB update logic
-    id_str = get_id_str()
+    id_str = get_id_str(DIR_NAME)
     cur_date_formatted = datetime.now().strftime('%Y-%m-%d')
     cur_time_formatted = datetime.now().strftime('%H:%M:%S')
 
@@ -134,46 +136,31 @@ def check_speakers_not_spoken():
         'message': 'Check for speakers not spoken completed and stored in DynamoDB.',
         'speakers_not_spoken': speakers_not_spoken  # Assuming speakers_not_spoken is the list of speakers
     }
+
+    print(speakers_not_spoken)
     
     return jsonify(result)
 
 def check_speakers_within_timeframe(start_time, end_time, preset_speakers):
+    parser = argparse.ArgumentParser(description="directory")
+    parser.add_argument("-d", "--directory", required=True, help="directory that will contain the dataset")
+    args = parser.parse_args()
+    DIR_NAME = args.directory
+
     speakers_not_spoken = set(preset_speakers)
 
     # Define the range of numbers (10 to 240) for the filenames
     for number in range(start_time, end_time + 1, 15):
         # Provide path to transcript chunks here
-        filename = DIR_NAME + f'recorded_data/chunk_{number}.wav.json'
+        filename = DIR_NAME + '/recorded_data/chunk_%d.wav.json'%number
         if os.path.exists(filename):
             # Load the JSON data from the file
             with open(filename, 'r') as file:
                 data = json.load(file)
 
                 for segment in data['transcription']:
-                    # segment_id = segment['id']
-                    start_time = segment['timestamps']['from']
-                    end_time = segment['timestamps']['to']
-
-                    # Extract words spoken by each person
-                    texts = segment['text']
-                    words = texts.split()
-
-                    print(segment['text'])
-                    print(segment['speaker'])
-
-                    # Initialize the speaker name for this segment
-                    segment_speaker = None
-
-                    for word in words:
-                        if segment['speaker']:
-                            segment_speaker = segment['speaker']
-                        if segment_speaker:
-                            speaker_name = segment_speaker
-                        else:
-                            speaker_name = "unknown"
-
-                        # Remove the speaker from the set as they speak
-                        speakers_not_spoken.discard(speaker_name)
+                    speaker_name = segment['speaker']
+                    speakers_not_spoken.discard(speaker_name)
 
     print(list(speakers_not_spoken))
     return list(speakers_not_spoken)
@@ -181,10 +168,13 @@ def check_speakers_within_timeframe(start_time, end_time, preset_speakers):
 
 @app.route('/analysis', methods=['POST'])
 def analyze_transcripts():
-
+    parser = argparse.ArgumentParser(description="directory")
+    parser.add_argument("-d", "--directory", required=True, help="directory that will contain the dataset")
+    args = parser.parse_args()
+    DIR_NAME = args.directory
 
     # Load the JSON data from the ID.json file
-    with open(DIR_NAME + 'assign_speaker/ID.json', 'r') as file:
+    with open(DIR_NAME + '/assign_speaker/ID.json', 'r') as file:
         data = json.load(file)
 
     # Initialize an empty set for preset_speakers
@@ -193,21 +183,21 @@ def analyze_transcripts():
     # Iterate through the data and add the first value of the ID array for each person to the set
     for person in data.values():
         if person['ID']:  # Check if the ID list is not empty
-            preset_speakers.add(person['ID'][0]) 
-
+            preset_speakers.add(person['ID']) 
 
     data = request.json
     
     total_files = int(data['total_files'])  
-    x = total_files + 1 #last chunk ID + 1
+    x = total_files #last chunk ID + 1
     print("last_chunk_id", x)
+    x += 1
     # Initialize an empty list to store the table data
     all_table_data = []
     
     # Define the range of numbers (105 to 240) for the filenames
     for number in range(15, x, 15):
         #Provide path to transcript chunks here
-        filename = DIR_NAME + 'recorded_data/chunk_{number}.wav.json'
+        filename = DIR_NAME + '/recorded_data/chunk_%d.wav.json'%number
         if os.path.exists(filename):
             # Load the JSON data from the file
             with open(filename, 'r') as file:
@@ -229,13 +219,12 @@ def analyze_transcripts():
                 segment_speaker = None
 
                 for word in words:
-                    if 'speaker' in word:
-                        if segment['speaker']:
-                            segment_speaker = segment['speaker']
-                        if segment_speaker:
-                            speaker_name = segment_speaker
-                        else:
-                            speaker_name = "unknown"
+                    if segment['speaker']:
+                        segment_speaker = segment['speaker']
+                    if segment_speaker:
+                        speaker_name = segment_speaker
+                    else:
+                        speaker_name = "unknown"
 
                     spoken_text = word if segment_speaker else f"{word} (unknown)"
 
@@ -271,6 +260,7 @@ def analyze_transcripts():
             current_start_time = data['Start Time']
             current_end_time = data['End Time']
             current_file_names = [data['File Name']]
+
 
     # Add the last merged sentence
     if current_sentence:
@@ -375,7 +365,7 @@ def analyze_transcripts():
     word_counts_result = {person: int(group['Word Count'].sum().item()) for person, group in df.groupby('Person')}
     first_words_spoken_result = first_occurrence
 
-    id_str = get_id_str()
+    id_str = get_id_str(DIR_NAME)
     cur_date_formatted = datetime.now().strftime('%Y-%m-%d')
     cur_time_formatted = datetime.now().strftime('%H:%M:%S')
 
@@ -390,7 +380,7 @@ def analyze_transcripts():
             # If the item does not exist, create a new structure for it
             cur_date_data = {}
             item = {
-                'group_id': id_str,
+                'group_id': "Apple",
                 cur_date_formatted: cur_date_data
             }
 
@@ -415,6 +405,8 @@ def analyze_transcripts():
         'word_counts': word_counts_result,
         'first_words_spoken': first_words_spoken_result
     }
+    
+    print(first_words_spoken_result)
     
     return jsonify(result)
 

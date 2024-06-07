@@ -8,6 +8,8 @@ from tuning import Tuning
 import time
 import os
 import subprocess
+import sys
+import argparse
 
 
 
@@ -74,94 +76,42 @@ def close_audio_stream(stream, p):
     stream.stop_stream()
     stream.close()
     p.terminate()
-    
-def process_audio(wav_file, model_name):
-    model = f"./whisper.cpp/models/ggml-{model_name}.bin"
-
-    # Check if the file exists
-    if not os.path.exists(model):
-        raise FileNotFoundError(f"Model file not found: {model} \n\nDownload a model with this command:\n\n> bash ./models/download-ggml-model.sh {model_name}\n\n")
-
-    if not os.path.exists(wav_file):
-        raise FileNotFoundError(f"WAV file not found: {wav_file}")
-
-    full_command = f"./whisper.cpp/main -m {model} -f {wav_file} -oj"
-
-    # Execute the command
-    process = subprocess.Popen(full_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-    # Get the output and error (if any)
-    output, error = process.communicate()
-
-    # Process and return the output string
-    decoded_str = output.decode('utf-8').strip()
-    processed_str = decoded_str.replace('[BLANK_AUDIO]', '').strip()
 
 # Return DOA of speaker
-def find_doa(doa_file, transcription_file):
+def find_doa(doa_file):
     doa_list = []
-    with open(transcription_file) as j:
-        data = json.load(j)
-    
     with open(doa_file) as d:
         doa_data = json.load(d)
 
-    for transcription in data['transcription']:
-        time_start = time_str_to_float(transcription['timestamps']['from'])
-        time_end   = time_str_to_float(transcription['timestamps']['to'])
     for dic in doa_data:
         doa = dic['doa']
-        doa_time = dic['record_time'] - 1
-        if time_start < doa_time < time_end:
-            doa_list.append(doa)
+        doa_list.append(doa)
     median_doa = np.median(doa_list)
     
     return median_doa
 
 
 # Add IDs in the dictionary
-def add_ID(ID_list, doa_file, transcription_file, std_id):
-    median_doa = find_doa(doa_file, transcription_file)
-    words_not_removed = []
-
-    with open(transcription_file) as j:
-        data = json.load(j)
-
-    # Words that are not saved as IDs
-    words_to_remove = ['','name', 'My', 'my', 'favorite', 'favourite', 'animal', 'is', 'number', 'animals', 'numbers', 'a', 'an', 'the', 'and', 'And', 'Hi']
-    for transcription in data['transcription']:
-        for item in transcription:
-            if 'text' == item:
-                sentence = transcription[item]
-                sentence = sentence.replace(".","").replace(",","")
-                words = sentence.split()
-                word_not_removed = [word for word in words if word not in words_to_remove]
-                words_not_removed.extend(word_not_removed)
-                                                                                      
-    
-    # Add name, animal, number in the dictionary
-    ID_list['person'+std_id] = {'doa': median_doa, 'ID': std_id}
-    sentence_not_removed = ' '.join(words_not_removed)
-    
+def add_ID(ID_list, doa_file, std_id):
+    median_doa = find_doa(doa_file)
+    ID_list['person'+std_id] = {'doa': median_doa, 'ID': std_id}    
     print('DOA of student ' + std_id + ' is ' + str(median_doa))
 
     return ID_list, median_doa
 
 
 def main():
-    os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-    dir_name = input("Type a name of directory: ")
+    os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+
+    parser = argparse.ArgumentParser(description="directory")
+    parser.add_argument("-d", "--directory", required=True, help="directory that will contain the dataset")
+    args = parser.parse_args()
+    dir_name = args.directory
     dir_path = dir_name+'/assign_speaker/'
-
-    if os.path.exists(dir_path) and os.path.isdir(dir_path):
-        print("The directory path is: " + dir_path)
-    else:
-        print("The directory does not exist. Create a directory and try again")
 
     ID_file            = dir_path+'ID.json'
     ID_list = {}
-    model = "base.en"
 
     # Start recording
     while True:
@@ -174,7 +124,6 @@ def main():
         if value == 'add ID':
             std_id = input('Type the student ID: ')
             audio_file         = dir_path+'ID'+std_id+'.wav'
-            transcription_file = dir_path+'ID'+std_id+'.wav.json'
             doa_file           = dir_path+'doa'+std_id+'.json'
             # record audio
             dev = find_device()
@@ -183,11 +132,8 @@ def main():
             record_audio(stream, p, dev, audio_file, doa_file, std_id)
             close_audio_stream(stream, p)
 
-            # Transcribe the audio
-            process_audio(audio_file, model)
-
             # Create ID file 
-            ID_list, median_doa = add_ID(ID_list, doa_file, transcription_file, std_id)
+            ID_list, median_doa = add_ID(ID_list, doa_file, std_id)
 
         else:
             print("Invalid input. Please try again.")

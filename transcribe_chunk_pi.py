@@ -9,13 +9,17 @@ import wave
 import numpy as np
 from tuning import Tuning
 import time
-import os
 import glob
 import threading
 from queue import Queue
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import requests
+import sys
+import argparse
+import boto3
+from datetime import datetime
+
 
 RESPEAKER_RATE = 16000
 RESPEAKER_CHANNELS = 1
@@ -23,9 +27,28 @@ RESPEAKER_WIDTH = 2
 RESPEAKER_INDEX = 5
 CHUNK = 1024
 RECORD_SECONDS = 7
+AWS_ACCESS_KEY_ID = 'AKIA5ILC25FLJDD4PYMI'
+AWS_SECRET_ACCESS_KEY = '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'
+AWS_REGION = 'us-east-2'
+S3_BUCKET_NAME = 'respeaker-recordings'
+
 # Create a queue to hold file paths
 doa_queue = Queue()
 audio_queue = Queue()
+
+s3 = boto3.client(
+    's3',
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    region_name=AWS_REGION
+)
+
+def upload_to_s3(local_file_path, s3_path):
+    try:
+        s3.upload_file(local_file_path, S3_BUCKET_NAME, s3_path)
+        print(f'Successfully uploaded {local_file_path} to {s3_path}')
+    except Exception as e:
+        print(f'Error uploading {local_file_path} to {s3_path}: {e}')
 
 def time_str_to_float(time_str):
     hours, minutes, seconds_ms = time_str.split(':')
@@ -111,11 +134,21 @@ def on_created(event):
             doa_file = file_path
             doa_queue.put(doa_file)
 
+def word_to_num(word):
+    mapping = {
+        '1': 1, '2': 2, '3': 3, '4': 4, '5': 5,
+        '6': 6, '7': 7, '8': 8, '9': 9, '10': 10
+    }
+    return mapping.get(word.lower(), 0)
+
 
 def main():
     os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+    parser = argparse.ArgumentParser(description="directory")
+    parser.add_argument("-d", "--directory", required=True, help="directory that will contain the dataset")
+    args = parser.parse_args()
+    dir_name = args.directory
 
-    dir_name = input("Type a name of directory: ")
     dir_path = dir_name+'/recorded_data/'
 
     if os.path.exists(dir_path) and os.path.isdir(dir_path):
@@ -132,13 +165,11 @@ def main():
     observer = Observer()
     observer.schedule(event_handler, path=watched_directory, recursive=True)
 
-    # Start the directory observer
-    print(f"Watching directory: {watched_directory}")
-    observer.start()
-    last_iteration = 60
-    os.environ['LAST_ITERATION'] = ""
     url = "http://127.0.0.1:8080/check_speakers_not_spoken"
     url2 = "http://127.0.0.1:8080/analysis"
+    print(f"Watching directory: {watched_directory}")
+    observer.start()
+    os.environ['LAST_ITERATION'] = ""
 
     try:
         while True:
@@ -150,26 +181,37 @@ def main():
                 iteration = int(os.path.splitext(os.path.basename(audio_file))[0].split('_')[1])
                 time.sleep(15) # Wait until the 10 sec chunk is finished
 
+                ID_file  = dir_name + '/assign_speaker/ID.json'
+                with open(ID_file, 'r') as f:
+                    ID_data = json.load(f)
+                    # Convert word-based numeric IDs to integers and sort them
+                    numeric_ids = sorted([word_to_num(info['ID'][0]) for info in ID_data.values()])
+                    filtered_numeric_ids = list(filter(lambda x: x!= 0, numeric_ids))
+                    id_str = '_'.join(map(str, filtered_numeric_ids))
+
                 transcribe_and_add_doa(model, audio_file, doa_file, transcription_file)
                 print("Transcription: " + transcription_name + " is added")
                 print(f"Removed from queue: {audio_file}")
                 print(f"Removed from queue: {doa_file}")
                 print("New flask has been called at", iteration)
 
-                # Call url once every 15 seconds
-                if iteration % 15 == 0:
+                date_folder = datetime.now().strftime('%Y-%m-%d')
+                transcription_s3_path = f'transcription-files/{date_folder}/{id_str}/{transcription_name}'
+
+                upload_to_s3(transcription_file, transcription_s3_path)
+
+                # Call url once every 60 seconds
+                if iteration % 60 == 0:
                     data = {"start_time": iteration - 15, "end_time": iteration}
                     response = requests.post(url, json=data)
                     
                 #Call url2 once every 300 seconds
-                if iteration % 300 == 0:
-                    data2 = {"total_files": last_iteration}  # Use the last processed iteration
+                if iteration % 300:
+                    data2 = {"total_files": iteration}  # Use the last processed iteration
                     response2 = requests.post(url2, json=data2)
                     print("Response from url2", response2)
-                    break  # Exit the loop after processing all iterations
 
-            
-
+        
     except KeyboardInterrupt:
         observer.stop()
 

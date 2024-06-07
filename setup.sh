@@ -1,7 +1,7 @@
 #!/bin/bash
 source venv/bin/activate
 
-DIRPATH='dataset/Apr5'
+DIRPATH='dataset/Jun7'
 
 if [ -d "$DIRPATH" ]; then
     echo "Dataset directory '$DIRPATH' already exists"
