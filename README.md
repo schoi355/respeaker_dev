@@ -154,3 +154,20 @@ On Raspberian,
 sudo apt-get install python3-buttonshim
 venv/bin/pip install buttonshim smbus
 ```
+----------------------------------------------------------------------------------------
+## LCD display
+- Enable I2C communication.
+```
+sudo raspi-config
+```
+Select Interfacing options -> I2C, choose <Yes> and hit Enter, then go to Finish and reboot.
+
+Type the command to scan the I2C bus for a connected device:
+```
+sudo i2cdetect -y 1
+```
+The output should display the address of the I2C backpack (usually 0x27 or 0x3F). Please make a note of this address, as you will need it later.
+
+```
+venv/bin/pip install RPLCD
+```
