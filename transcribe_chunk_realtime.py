@@ -1,14 +1,13 @@
 import json
 import numpy as np
-from tuning import Tuning
 import time
 import os
-import whisper_timestamped as whisper
 from queue import Queue
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import requests
- 
+import subprocess
+
 RESPEAKER_RATE = 16000
 RESPEAKER_CHANNELS = 1  
 RESPEAKER_WIDTH = 2
@@ -20,11 +19,16 @@ RECORD_SECONDS = 7
 doa_queue = Queue()
 audio_queue = Queue()
 
-def transcribe_file(model, audio_file, transcription_file):
-    # Transcribe audio file
-    result = whisper.transcribe(model, audio_file, language="En")
-    with open(transcription_file, 'w') as t:
-        json.dump(result, t)
+def transcribe_file(audio_file, transcription_file):
+    # Use insanely-fast-whisper for transcription
+    command = [
+        "insanely-fast-whisper",
+        "--file-name", audio_file,
+        "--transcript-path", transcription_file,
+        "--device-id", "0",  # Change to "mps" if using Mac with Apple Silicon
+        "--flash", "True"
+    ]
+    subprocess.run(command, check=True)
 
 def add_doa(doa_file, transcription_file):
     with open(transcription_file) as j:
@@ -45,8 +49,8 @@ def add_doa(doa_file, transcription_file):
     with open(transcription_file, 'w') as j:
         json.dump(transcription, j)
 
-def transcribe_and_add_doa(model, audio_file, doa_file, transcription_file):
-    transcribe_file(model, audio_file, transcription_file)
+def transcribe_and_add_doa(audio_file, doa_file, transcription_file):
+    transcribe_file(audio_file, transcription_file)
     add_doa(doa_file, transcription_file)
 
 # Define the function to execute when a new audio file is created
@@ -66,10 +70,7 @@ def on_created(event):
 def main():
     os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
     
-    # Load whisper model
-    model = whisper.load_model("base", device="cpu")  # choose a model (tiny, base, small, medium, and large)
-
-    watched_directory       = "chunks/"
+    watched_directory = "chunks/"
     transcription_directory = "transcripts/"
 
     # Create an event handler and observer    
@@ -94,7 +95,7 @@ def main():
                 iteration = int(os.path.splitext(os.path.basename(audio_file))[0].split('_')[1])
                 time.sleep(10)  # Wait until the 10 sec chunk is finished
 
-                transcribe_and_add_doa(model, audio_file, doa_file, transcription_file)
+                transcribe_and_add_doa(audio_file, doa_file, transcription_file)
                 print("Transcription: " + transcription_name + " is added")
                 print(f"Removed from queue: {audio_file}")
                 print(f"Removed from queue: {doa_file}")
@@ -105,14 +106,12 @@ def main():
                     data = {"start_time": iteration - 15, "end_time": iteration}
                     response = requests.post(url, json=data)
                     
-                #Call url2 once every 300 seconds
-                if iteration % 300:
+                # Call url2 once every 300 seconds
+                if iteration % 300 == 0:
                     data2 = {"total_files": iteration}  # Use the last processed iteration
                     response2 = requests.post(url2, json=data2)
                     print("Response from url2", response2)
                     
-            
-
     except KeyboardInterrupt:
         observer.stop()
 
