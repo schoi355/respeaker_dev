@@ -105,41 +105,24 @@ Go to settings in Nomachine -> server -> devices -> Uncheck 'USB devices' and un
 
 ## 2. How to use
 
-Before running any python script, run `get_index.py`
+Before running any python script, get the Respeaker device index by running `get_index.py`
 ```
 $ python get_index.py 
 ``` 
 
-This gives you what index the device is using.
-The index is defined as `RESPEAKER_INDEX` in `record.py` and `record_DOA.py`
+This gives you what index the device is using. Put the number of Respeaker device to `RESPEAKER_INDEX` in `record_DOA_ID_chunks_pi.py`
 
-### `record_DOA.py`
-This code is to record wave file from Respeaker device and collect DOA with timestamp and record time in JSON file. It produces `.wav` and `.json`
-
-
-### `record_DOA_chunks.py`
-This code is to record 10 seceond chunk of audio and collect DOA with timestamp and record time in JSON file.
-
-
-### `assign_speaker.py`
-This code is to assign speakers with their name and match it with their DOA. Find the ID results in `assign_speaker/ID.json` 
-
-
-### `record_DOA_ID_chunks.py`
-This code is similar to `record_DOA_chunks.py`, but adds speaker's name to DOA json file. It needs `ID.json` file to match DOA to the speakers.
-
-### `transcribe_chunks.py`
-This code is to transcribe audio chunks and produces transcription with speaker's name and DOA.
-
-## Set up Raspberry pi ssh
-To enable SSH via the Desktop, go to the `start menu` > `Preferences` > `Raspberry Pi Configuration`. Now click on `Interfaces` and click `enable` next to `SSH` and click `OK`.
-
-Now to connect, on the host computer open a terminal window and type in
+First, edit the folder name in `setup.sh`. Then, run `setup.sh` to activate the virtual environment and create a data folder.
 ```
-ssh username@raspberrypi.local
+source setup.sh
 ```
-When it asks for the password, type the password of the pi, for example, `0000`. Change `username` to username of the pi, for example, `respeaker`.
-If you want to terminate ssh, type `exit` on the terminal
+
+Next, put the same folder name in `record.sh`, `transcribe.sh`, and `flask.sh`. Then, run `run_scripts.sh` to open three terminals and run `record_DOA_ID_chunks_pi.py`, `transcribe_chunk_pi.py`, and `flask_prep_pi_dynamoDB.py`.
+```
+source run_scripts.sh
+```
+
+The next step is to calibrate the DOA angles for each speaker. In one of the terminals, you will be prompted with 'add ID' or 'stop'. By typing add ID, the speaker will speak for 8 seconds to determine the angle from the voice. When all speakers are calibrated, type `stop`, then it starts recording.
 
 ----------------------------------------------------------------------------------------
 ## 3. Miscellaneous (in progress)
