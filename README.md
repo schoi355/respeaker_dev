@@ -142,7 +142,7 @@ When it asks for the password, type the password of the pi, for example, `0000`.
 If you want to terminate ssh, type `exit` on the terminal
 
 ----------------------------------------------------------------------------------------
-3. Miscellaneous
+## 3. Miscellaneous (in progress)
 
 ### Mac address for Pi
 pi1 d8:3a:dd:f3:3d:dd
@@ -150,12 +150,12 @@ pi2 d8:3a:dd:f2:84:6f
 pi3 d8:3a:dd:e8:4b:a2
 
 ----------------------------------------------------------------------------------------
-## AWS
+### AWS URL
 
 https://uiuc-education-tissenbaum.signin.aws.amazon.com/console
 
 ----------------------------------------------------------------------------------------
-## Buttonshim
+### Buttonshim
 - Enable I2C communication.
 ```
 sudo raspi-config
@@ -175,7 +175,7 @@ sudo apt-get install python3-buttonshim
 venv/bin/pip install buttonshim smbus
 ```
 ----------------------------------------------------------------------------------------
-## LCD display
+### LCD display
 - Enable I2C communication.
 ```
 sudo raspi-config
