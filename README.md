@@ -4,7 +4,7 @@ This repository is under development for
  - Transcribe conversation using whisper
  - Identify speakers' Direction of Angle (DOA) usign Respeaker device
 
-## Setup
+## 1. Setup
 
 ### Clone the repository
 
@@ -82,7 +82,7 @@ pip install boto3
 
 
 
-## How to use
+## 2. How to use
 
 Before running any python script, run `get_index.py`
 ```
