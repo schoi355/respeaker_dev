@@ -48,6 +48,11 @@ You might need to create a udev rule to ensure that the USB device is accessible
 SUBSYSTEM=="usb", MODE="0666"
 ```
 
+Install sounddevice for Pi
+```
+pip install sounddevice
+```
+
 ### Set up Whisper (language model)
 
 Install [whisper-timestamped](https://github.com/linto-ai/whisper-timestamped)
