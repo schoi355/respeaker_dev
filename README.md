@@ -80,6 +80,27 @@ python -m spacy download en_core_web_sm
 pip install boto3
 ```
 
+### Set up remote control using Nomachine
+
+Download [Nomachine](https://downloads.nomachine.com/download/?id=109&distro=Raspberry&hw=Pi4)
+
+Install the package by running
+
+```
+sudo dpkg -i nomachine_8.11.3_3_arm64.deb
+```
+
+Additionally, there is a reported issue with Wayland compositor, so disable Wayland and use X.org by
+
+```
+sudo raspi-config
+Advanced Options -> Wayland -> X11 -> OK -> Finish -> Yes (to reboot)
+```
+
+In Nomachine on pi side, disable audio device.
+```
+Go to settings in Nomachine -> server -> devices -> Uncheck 'USB devices' and uncheck 'enable audio streaming and microphone forwarding'
+```
 
 
 ## 2. How to use
@@ -121,27 +142,12 @@ When it asks for the password, type the password of the pi, for example, `0000`.
 If you want to terminate ssh, type `exit` on the terminal
 
 ----------------------------------------------------------------------------------------
+3. Miscellaneous
+
 ### Mac address for Pi
 pi1 d8:3a:dd:f3:3d:dd
 pi2 d8:3a:dd:f2:84:6f
 pi3 d8:3a:dd:e8:4b:a2
-
-### Setup Nomachine for Pi
-
-Download [Nomachine](https://downloads.nomachine.com/download/?id=109&distro=Raspberry&hw=Pi4)
-
-Install the package by running
-
-```
-sudo dpkg -i nomachine_8.11.3_3_arm64.deb
-```
-
-Additionally, there is a reported issue with Wayland compositor, so disable Wayland and use X.org by
-
-```
-sudo raspi-config
-Advanced Options -> Wayland -> X11 -> OK -> Finish -> Yes (to reboot)
-```
 
 ----------------------------------------------------------------------------------------
 ## AWS
