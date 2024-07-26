@@ -6,6 +6,7 @@ import nltk
 import spacy
 from nltk.stem import PorterStemmer
 from datetime import datetime, timedelta
+from transformers import pipeline
 import boto3
 import os
 import time
@@ -35,8 +36,8 @@ app = Flask(__name__)
 # Load the spaCy language model
 nlp = spacy.load("en_core_web_sm")
 
-
-
+# Load LLM
+classifier = pipeline(task="text-classification", model="SamLowe/roberta-base-go_emotions", top_k=None)
 
 def word_to_num(word):
     mapping = {
@@ -116,6 +117,9 @@ def check_speakers_not_spoken():
 
             # Update the item in the table
             table.put_item(Item=item)
+
+        # Note: This else block can probably be removed since this route is called every 60 seconds, and the words_concat route is called
+        # every 15 seconds, so the item will ALWAYS be there
         else:
             # If the item does not exist, create a new one with the date directly under group_id
             new_item = {
@@ -409,6 +413,146 @@ def analyze_transcripts():
     print(first_words_spoken_result)
     
     return jsonify(result)
+
+@app.route('/word_concatenations', methods=['POST'])
+def word_concatenations():
+    parser = argparse.ArgumentParser(description="directory")
+    parser.add_argument("-d", "--directory", required=True, help="directory that will contain the dataset")
+    args = parser.parse_args()
+    DIR_NAME = args.directory
+
+    # Opening the appropriate JSON for the chunk of speech just recorded
+    filename = DIR_NAME + f'/recorded_data/chunk_{request.json['iteration']}.wav.json'
+    if os.path.exists(filename):
+        # Load the JSON data from the file
+        with open(filename, 'r') as file:
+            data = json.load(file)
+
+    # Creating a dictionary to store speakers' words
+    speakers_words = {}
+
+    # Extracting words spoken by each speaker
+    for word_info in data['segments'][0]['words']:
+        speaker = word_info['speaker']
+        word = word_info['text']
+        if speaker not in speakers_words:
+            speakers_words[speaker] = []
+        speakers_words[speaker].append(word)
+
+    # Converting lists of words into space-separated strings
+    for speaker in speakers_words:
+        speakers_words[speaker] = ' '.join(speakers_words[speaker])
+
+    # DynamoDB update logic (needed for saving to DB)
+    id_str = get_id_str(DIR_NAME)
+    cur_date_formatted = datetime.now().strftime('%Y-%m-%d')
+    cur_time_formatted = datetime.now().strftime('%H:%M:%S')
+
+    # Prepare the word concatenations
+    # Under "word_concatenations" in the DB are maps for each speaker, which then map to individual "results" containing the string of concatenated words
+    word_concats = {}
+    for speaker, words in speakers_words.items():
+        word_concats[speaker] = {
+            f"Results_{request.json['iteration']}": words
+        }
+
+    # The try-catch block saves the word concatenations to the DB
+    try:
+        # Fetch the current item based on group_id
+        response = table.get_item(Key={'group_id': id_str})
+        item = response.get('Item')
+
+        if item:
+            # Ensure current date's map exists directly within the item
+            if cur_date_formatted not in item:
+                item[cur_date_formatted] = {}
+
+            # Add the new result to the 'word_concatenations' section within the current date
+            cur_date_data = item[cur_date_formatted]
+            cur_date_data.setdefault('word_concatenations', {})
+            
+            # Merge new words with existing words for each speaker
+            # (we can't just set the 'word_concatenations' attribute equal to the word_concats variable otherwise we'll overwrite previous entries)
+            for speaker, new_results in word_concats.items():
+                if speaker not in cur_date_data['word_concatenations']:
+                    cur_date_data['word_concatenations'][speaker] = new_results
+                else:
+                    for key, new_words in new_results.items():
+                        cur_date_data['word_concatenations'][speaker][key] = new_words
+
+            # Update the item in the table
+            table.put_item(Item=item)
+        else:
+            # If the item does not exist, create a new one with the date directly under group_id
+            new_item = {
+                'group_id': id_str,
+                cur_date_formatted: {
+                    'word_concatenations': word_concats
+                }
+            }
+            
+            table.put_item(Item=new_item)
+
+    except botocore.exceptions.ClientError as error:
+        # Handle the exception
+        print(f"An error occurred: {error}")
+    
+    result = {
+        'message': 'Word concatenations completed and stored in DynamoDB',
+        'word_concatenations': word_concatenations
+    }
+
+    return jsonify(result)
+
+@app.route('/emotion_check', methods=['POST'])
+def emotion_check():
+    parser = argparse.ArgumentParser(description="directory")
+    parser.add_argument("-d", "--directory", required=True, help="directory that will contain the dataset")
+    args = parser.parse_args()
+    DIR_NAME = args.directory
+
+    id_str = get_id_str(DIR_NAME)
+    response = table.get_item(Key={'group_id': id_str})
+    item = response.get('Item')
+
+    # Access the nested structure
+    cur_date_formatted = datetime.now().strftime('%Y-%m-%d')
+    word_concats = item.get(cur_date_formatted, {}).get('word_concatenations', {})
+    emotion_results = {}
+
+    for speaker, results in word_concats.items():
+        last_four = list(results.items())[-4:]
+        amount_of_recent = 0    # there needs to be 2 recent chunks to count it
+        all_words = ''
+        for iteration_num, words in last_four:
+            recently_transcribed_iteration = request.json['iteration'] / 15
+            which_iteration = iteration_num / 15
+            if which_iteration <= recently_transcribed_iteration and which_iteration > recently_transcribed_iteration - 4:
+                all_words += words
+                amount_of_recent += 1
+    
+        # only counts if the last 2 out of 4 chunks include speech from this speaker
+        if amount_of_recent >= 2:
+            emotion_results[speaker] = {
+            f"Results_{request.json['iteration']}": all_words
+        }
+
+    # Finds the attribute for the current date and adds "emotion_results" if not there
+    cur_date_data = item[cur_date_formatted]
+    cur_date_data.setdefault('emotion_results', {})
+
+    # Adds the emotion data just collected to the speaker name attributes (or if they aren't there, adds a new speaker name entry)
+    for speaker, new_results in emotion_results.items():
+        if speaker not in cur_date_data['emotion_results']:
+            cur_date_data['emotion_results'][speaker] = new_results
+        else:
+            for key, emotion_data in new_results.items():
+                cur_date_data['emotion_results'][speaker][key] = emotion_data
+            
+    return jsonify({
+        'message': 'Emotion analysis completed and stored in DynamoDB',
+        'emotion_results': emotion_results
+    })
 
 if __name__ == '__main__':
     app.run(debug=True, port=8080)
