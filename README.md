@@ -174,3 +174,13 @@ The output should display the address of the I2C backpack (usually 0x27 or 0x3F)
 ```
 venv/bin/pip install RPLCD
 ```
+----------------------------------------------------------------------------------------
+### Analysis
+
+/check_speakers_not_spoken: not accumlate time, call this url every 60 sec..
+check_speakers_not_spoken: first table: 0 - 60 sec, second: 60 - 120 sec, ...
+
+/analysis: accumulate time, call this url every 300 sec.
+word_counts
+first_words_spoken: 
+ex) First table: 0 - 300 sec, second table: 0 - 600 sec, ... 
