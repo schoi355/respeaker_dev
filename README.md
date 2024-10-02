@@ -175,6 +175,30 @@ The output should display the address of the I2C backpack (usually 0x27 or 0x3F)
 venv/bin/pip install RPLCD
 ```
 ----------------------------------------------------------------------------------------
+
+### OLED display with buttons and joystick
+- Enable I2C communication.
+```
+sudo raspi-config
+```
+Select Interfacing options -> I2C, choose <Yes> and hit Enter, then go to Finish and reboot.
+
+Type the command to scan the I2C bus for a connected device:
+```
+sudo i2cdetect -y 1
+```
+The output should display the address of the I2C backpack (usually 0x27 or 0x3F). Please make a note of this address, as you will need it later.
+
+```
+venv/bin/pip install adafruit-circuitpython-ssd1306
+sudo apt-get tinstall python3-pil
+```
+Note that Adafruit Blinka uses libgpiod for Pi 5 rather than RPi.GPIO on the Pi 4. Intall this
+```
+venv/bin/pip install gpiod
+```
+
+----------------------------------------------------------------------------------------
 ### Analysis
 
 /check_speakers_not_spoken: not accumlate time, call this url every 60 sec..
