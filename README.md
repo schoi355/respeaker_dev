@@ -181,7 +181,8 @@ venv/bin/pip install RPLCD
 ```
 sudo raspi-config
 ```
-Select Interfacing options -> I2C, choose <Yes> and hit Enter, then go to Finish and reboot.
+Select Interfacing options -> I2C, choose <Yes> and hit Enter. Then, navigate to Interface Options -> P1 GPIO and ensure GPIO is enabled.
+Then go to Finish and reboot.
 
 Type the command to scan the I2C bus for a connected device:
 ```
