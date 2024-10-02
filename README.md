@@ -199,6 +199,11 @@ Note that Adafruit Blinka uses libgpiod for Pi 5 rather than RPi.GPIO on the Pi 
 venv/bin/pip install gpiod
 ```
 
+Pi 5 usually uses `gpiochip4` for the GPIO. You can see the list of pins by running
+```
+sudo gpioinfo gpiochip4
+```
+
 ----------------------------------------------------------------------------------------
 ### Analysis
 
