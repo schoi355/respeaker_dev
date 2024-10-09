@@ -26,7 +26,7 @@ RESPEAKER_CHANNELS = 1
 RESPEAKER_WIDTH = 2
 RESPEAKER_INDEX = 5
 CHUNK = 1024
-RECORD_SECONDS = 7
+RECORD_SECONDS = 15
 AWS_ACCESS_KEY_ID = 'AKIA5ILC25FLJDD4PYMI'
 AWS_SECRET_ACCESS_KEY = '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'
 AWS_REGION = 'us-east-2'
@@ -167,6 +167,8 @@ def main():
 
     url = "http://127.0.0.1:8080/check_speakers_not_spoken"
     url2 = "http://127.0.0.1:8080/analysis"
+    url3 = "http://127.0.0.1:8080/word_concatenations"
+    url4 = "http://127.0.0.1:8080/emotion_check"
     print(f"Watching directory: {watched_directory}")
     observer.start()
     os.environ['LAST_ITERATION'] = ""
@@ -211,6 +213,13 @@ def main():
                     response2 = requests.post(url2, json=data2)
                     print("Response from url2", response2)
 
+                data3 = {"current_iteration": iteration}
+                response3 = requests.post(url3, json=data3)
+
+                # Call url4 after EVERY chunk once there are 4 existing chunks
+                if iteration >= (RECORD_SECONDS * 4):
+                    data4 = {"current_iteration": iteration}
+                    response4 = requests.post(url4, json=data4)
         
     except KeyboardInterrupt:
         observer.stop()
