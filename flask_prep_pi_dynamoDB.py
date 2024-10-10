@@ -422,7 +422,7 @@ def word_concatenations():
     DIR_NAME = args.directory
 
     # Opening the appropriate JSON for the chunk of speech just recorded
-    filename = DIR_NAME + f'/recorded_data/chunk_{request.json['iteration']}.wav.json'
+    filename = DIR_NAME + f'/recorded_data/chunk_{request.json["iteration"]}.wav.json'
     if os.path.exists(filename):
         # Load the JSON data from the file
         with open(filename, 'r') as file:
