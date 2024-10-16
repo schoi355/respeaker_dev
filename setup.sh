@@ -1,14 +1,15 @@
 #!/bin/bash
 source venv/bin/activate
 
-DIRPATH='dataset/Jul9'
+TODAY=$(date +"%b%d")
+counter=0
+DIRPATH="dataset/${TODAY}_${counter}"
 
-if [ -d "$DIRPATH" ]; then
-    echo "Dataset directory '$DIRPATH' already exists"
-else
-    echo "create directory '$DIRPATH'"
-    mkdir $DIRPATH
-    mkdir "$DIRPATH/assign_speaker"
-    mkdir "$DIRPATH/recorded_data"
-fi
+while [ -d "$DIRPATH" ]; do
+    counter=$((counter + 1))
+    DIRPATH="dataset/${TODAY}_${counter}"
+done
 
+echo "Creating directory '$DIRPATH'"
+mkdir -p "$DIRPATH/assign_speaker"
+mkdir -p "$DIRPATH/recorded_data"

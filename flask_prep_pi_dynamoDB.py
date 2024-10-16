@@ -15,6 +15,7 @@ from boto3.dynamodb.conditions import Attr
 import sys
 import argparse
 
+CHUNKSIZE = 15 # sec
 AWS_ACCESS_KEY_ID = 'AKIA5ILC25FLJDD4PYMI'
 AWS_SECRET_ACCESS_KEY = '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'
 AWS_REGION = 'us-east-2'
@@ -154,7 +155,7 @@ def check_speakers_within_timeframe(start_time, end_time, preset_speakers):
     speakers_not_spoken = set(preset_speakers)
 
     # Define the range of numbers (10 to 240) for the filenames
-    for number in range(start_time, end_time + 1, 15):
+    for number in range(start_time, end_time + 1, CHUNKSIZE):
         # Provide path to transcript chunks here
         filename = DIR_NAME + '/recorded_data/chunk_%d.wav.json'%number
         if os.path.exists(filename):
@@ -199,7 +200,7 @@ def analyze_transcripts():
     all_table_data = []
     
     # Define the range of numbers (105 to 240) for the filenames
-    for number in range(15, x, 15):
+    for number in range(CHUNKSIZE, x, CHUNKSIZE):
         #Provide path to transcript chunks here
         filename = DIR_NAME + '/recorded_data/chunk_%d.wav.json'%number
         if os.path.exists(filename):
@@ -555,4 +556,4 @@ def emotion_check():
     })
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8080)
+    app.run(debug=True, port=8000)

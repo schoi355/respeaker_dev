@@ -18,7 +18,7 @@ import argparse
 RESPEAKER_RATE = 16000
 RESPEAKER_CHANNELS = 1 # change base on firmwares, 1_channel_firmware.bin as 1 or 6_channels_firmware.bin as 6
 RESPEAKER_WIDTH = 2
-# run getDeviceInfo.py to get index
+# run get_index.py to get index
 RESPEAKER_INDEX = 1  # refer to input device id
 CHUNK = 1024
 CHUNKSIZE = 15 # sec
@@ -49,7 +49,7 @@ def ang_shift(angle):
 
 # Assign a range of angles for each speaker 
 def assign_angle(ID_file):
-    angle = int(20) # 20 deg 
+    angle = int(30) # 20 deg 
     ang_dic = {}
     with open(ID_file, 'r') as f:
         ID_data = json.load(f)
@@ -253,14 +253,14 @@ def main():
             unknown_speakers = record_audio(stream, p, dev, ID_file, audio_file, doa_file, unknown_speakers)
             update_id_json('ID.json', dir_name, unknown_speakers)
             date_folder = datetime.now().strftime('%Y-%m-%d')
-            audio_s3_path = f'audio-files/{date_folder}/{id_str}/{os.path.basename(audio_file)}'
-            doa_s3_path = f'doa-files/{date_folder}/{id_str}/{os.path.basename(doa_file)}'
+            # audio_s3_path = f'audio-files/{date_folder}/{id_str}/{os.path.basename(audio_file)}'
+            # doa_s3_path = f'doa-files/{date_folder}/{id_str}/{os.path.basename(doa_file)}'
             
             # # Upload audio file to S3
-            upload_to_s3(audio_file, audio_s3_path)
+            # upload_to_s3(audio_file, audio_s3_path)
 
             # # Upload doa file to S3
-            upload_to_s3(doa_file, doa_s3_path)
+            # upload_to_s3(doa_file, doa_s3_path)
 
             close_audio_stream(stream, p)
 

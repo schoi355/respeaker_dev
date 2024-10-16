@@ -20,6 +20,7 @@ import argparse
 import boto3
 from datetime import datetime
 
+<<<<<<< HEAD
 
 RESPEAKER_RATE = 16000
 RESPEAKER_CHANNELS = 1
@@ -27,6 +28,9 @@ RESPEAKER_WIDTH = 2
 RESPEAKER_INDEX = 5
 CHUNK = 1024
 RECORD_SECONDS = 15
+=======
+CHUNKSIZE = 15
+>>>>>>> 1fa7869 (Fix bugs)
 AWS_ACCESS_KEY_ID = 'AKIA5ILC25FLJDD4PYMI'
 AWS_SECRET_ACCESS_KEY = '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'
 AWS_REGION = 'us-east-2'
@@ -119,6 +123,15 @@ def transcribe_and_add_doa(model, audio_file, doa_file, transcription_file):
     transcribe_file(model, audio_file)
     add_doa(doa_file, transcription_file)
 
+def wait_until_written(file_path, timeout):
+    last_size = -1
+    while timeout > 0:
+        current_size = os.path.getsize(file_path)
+        if current_size == last_size:
+            break
+        time.sleep(1)
+        timeout -= 1
+
 # Define the function to execute when a new audio file is created
 def on_created(event):
     global doa_file, audio_file 
@@ -134,12 +147,17 @@ def on_created(event):
             doa_file = file_path
             doa_queue.put(doa_file)
 
+    
+
 def word_to_num(word):
     mapping = {
         '1': 1, '2': 2, '3': 3, '4': 4, '5': 5,
         '6': 6, '7': 7, '8': 8, '9': 9, '10': 10
     }
     return mapping.get(word.lower(), 0)
+
+
+
 
 
 def main():
@@ -181,7 +199,9 @@ def main():
                 transcription_name = os.path.splitext(os.path.basename(audio_file))[0] + '.wav.json'
                 transcription_file = os.path.join(watched_directory, transcription_name)
                 iteration = int(os.path.splitext(os.path.basename(audio_file))[0].split('_')[1])
-                time.sleep(15) # Wait until the 10 sec chunk is finished
+                if doa_queue.qsize() < 1:
+                    time.sleep(15)
+                    print("Waiting for the audio/doa coming")
 
                 ID_file  = dir_name + '/assign_speaker/ID.json'
                 with open(ID_file, 'r') as f:
@@ -204,7 +224,7 @@ def main():
 
                 # Call url once every 60 seconds
                 if iteration % 60 == 0:
-                    data = {"start_time": iteration - 15, "end_time": iteration}
+                    data = {"start_time": iteration - 30, "end_time": iteration}
                     response = requests.post(url, json=data)
                     
                 #Call url2 once every 300 seconds
