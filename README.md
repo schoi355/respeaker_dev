@@ -196,8 +196,6 @@ sudo apt-get install python3-pil
 ```
 Note that Adafruit Blinka uses libgpiod for Pi 5 rather than RPi.GPIO on the Pi 4. Intall this
 ```
-sudo apt-get install libgpiod2 libgpiod-dev
-sudo apt install gpiod
 venv/bin/pip install gpiod
 ```
 
