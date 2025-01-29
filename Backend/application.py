@@ -15,15 +15,9 @@ from boto3.dynamodb.conditions import Attr
 import sys
 import argparse
 
-
-application = Flask(__name__)
-
-application.config.from_object(__name__)
-application.config.from_pyfile('application.cfg', silent=True)
-
-AWS_ACCESS_KEY_ID = application.config['AWS_ACCESS_KEY_ID']
-AWS_SECRET_ACCESS_KEY = application.config['AWS_SECRET_ACCESS_KEY']
-AWS_REGION = application.config['AWS_REGION']
+AWS_ACCESS_KEY_ID = 'AKIA5ILC25FLKQPPTOEB'
+AWS_SECRET_ACCESS_KEY = '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'
+AWS_REGION = 'us-east-2'
 
 dynamodb = boto3.resource(
     'dynamodb',
@@ -36,6 +30,8 @@ table = dynamodb.Table('respeaker_data')
 
 # Initialize NLTK stemmer
 stemmer = PorterStemmer()
+
+app = Flask(__name__)
 
 # Load the spaCy language model
 nlp = spacy.load("en_core_web_sm")
@@ -68,7 +64,7 @@ def get_lemma(word):
     doc = nlp(word)
     return doc[0].lemma_
 
-@application.route('/check_speakers_not_spoken', methods=['POST'])
+@app.route('/check_speakers_not_spoken', methods=['POST'])
 def check_speakers_not_spoken():
     parser = argparse.ArgumentParser(description="directory")
     parser.add_argument("-d", "--directory", required=True, help="directory that will contain the dataset")
@@ -174,7 +170,7 @@ def check_speakers_within_timeframe(start_time, end_time, preset_speakers):
     return list(speakers_not_spoken)
 
 
-@application.route('/analysis', methods=['POST'])
+@app.route('/analysis', methods=['POST'])
 def analyze_transcripts():
     parser = argparse.ArgumentParser(description="directory")
     parser.add_argument("-d", "--directory", required=True, help="directory that will contain the dataset")
@@ -418,7 +414,7 @@ def analyze_transcripts():
 
     return jsonify(result)
 
-@application.route('/word_concatenations', methods=['POST'])
+@app.route('/word_concatenations', methods=['POST'])
 def word_concatenations():
     parser = argparse.ArgumentParser(description="directory")
     parser.add_argument("-d", "--directory", required=True, help="directory that will contain the dataset")
@@ -426,7 +422,7 @@ def word_concatenations():
     DIR_NAME = args.directory
 
     # Opening the appropriate JSON for the chunk of speech just recorded
-    filename = DIR_NAME + f'/recorded_data/chunk_{request.json["iteration"]}.wav.json'
+    filename = DIR_NAME + f'/recorded_data/chunk_{request.json['iteration']}.wav.json'
     if os.path.exists(filename):
         # Load the JSON data from the file
         with open(filename, 'r') as file:
@@ -508,7 +504,7 @@ def word_concatenations():
 
     return jsonify(result)
 
-@application.route('/emotion_check', methods=['POST'])
+@app.route('/emotion_check', methods=['POST'])
 def emotion_check():
     parser = argparse.ArgumentParser(description="directory")
     parser.add_argument("-d", "--directory", required=True, help="directory that will contain the dataset")
@@ -559,13 +555,5 @@ def emotion_check():
     })
 
 
-@application.route('/check_server_working', methods=['GET'])
-def check_server_working():
-    res = {
-        'message': 'Can Connect and working'
-    }
-    return jsonify(res)
-
-
 if __name__ == '__main__':
-    application.run(debug=True, port=8080)
+    app.run(debug=True, port=8080)

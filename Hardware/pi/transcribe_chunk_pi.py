@@ -20,7 +20,6 @@ import argparse
 import boto3
 from datetime import datetime
 
-<<<<<<< HEAD
 
 RESPEAKER_RATE = 16000
 RESPEAKER_CHANNELS = 1
@@ -28,9 +27,8 @@ RESPEAKER_WIDTH = 2
 RESPEAKER_INDEX = 5
 CHUNK = 1024
 RECORD_SECONDS = 15
-=======
+
 CHUNKSIZE = 15
->>>>>>> 1fa7869 (Fix bugs)
 AWS_ACCESS_KEY_ID = 'AKIA5ILC25FLJDD4PYMI'
 AWS_SECRET_ACCESS_KEY = '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'
 AWS_REGION = 'us-east-2'
@@ -147,17 +145,12 @@ def on_created(event):
             doa_file = file_path
             doa_queue.put(doa_file)
 
-    
-
 def word_to_num(word):
     mapping = {
         '1': 1, '2': 2, '3': 3, '4': 4, '5': 5,
         '6': 6, '7': 7, '8': 8, '9': 9, '10': 10
     }
     return mapping.get(word.lower(), 0)
-
-
-
 
 
 def main():
@@ -175,7 +168,7 @@ def main():
         print("The directory does not exist. Create a directory and try again")
     
     model = "tiny.en"
-    watched_directory       = dir_path
+    watched_directory = dir_path
 
     # Create an event handler and observer    
     event_handler = FileSystemEventHandler()
@@ -218,7 +211,9 @@ def main():
                 print("New flask has been called at", iteration)
 
                 date_folder = datetime.now().strftime('%Y-%m-%d')
-                transcription_s3_path = f'transcription-files/{date_folder}/{id_str}/{transcription_name}'
+                trial = str(dir_name)[-1]
+
+                transcription_s3_path = f'trials/{date_folder}/{trial}/transcription-files/{id_str}/{transcription_name}'
 
                 upload_to_s3(transcription_file, transcription_s3_path)
 

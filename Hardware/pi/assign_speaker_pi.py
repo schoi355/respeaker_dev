@@ -12,7 +12,6 @@ import sys
 import argparse
 
 
-
 RESPEAKER_RATE = 16000
 RESPEAKER_CHANNELS = 1 # change base on firmwares, 1_channel_firmware.bin as 1 or 6_channels_firmware.bin as 6
 RESPEAKER_WIDTH = 2
@@ -90,7 +89,6 @@ def find_doa(doa_file):
     
     return median_doa
 
-
 # Add IDs in the dictionary
 def add_ID(ID_list, doa_file, std_id):
     median_doa = find_doa(doa_file)
@@ -101,16 +99,14 @@ def add_ID(ID_list, doa_file, std_id):
 
 
 def main():
-
     os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-
     parser = argparse.ArgumentParser(description="directory")
     parser.add_argument("-d", "--directory", required=True, help="directory that will contain the dataset")
     args = parser.parse_args()
     dir_name = args.directory
     dir_path = dir_name+'/assign_speaker/'
 
-    ID_file            = dir_path+'ID.json'
+    ID_file = dir_path+'ID.json'
     ID_list = {}
 
     # Start recording

@@ -209,6 +209,7 @@ def main():
     parser.add_argument("-s", "--second", required=True, help="recording duration")
     args = parser.parse_args()
     dir_name = args.directory
+    trial = str(dir_name)[-1]
     duration = args.second
 
     dir_path = dir_name + '/recorded_data/'
@@ -253,14 +254,15 @@ def main():
             unknown_speakers = record_audio(stream, p, dev, ID_file, audio_file, doa_file, unknown_speakers)
             update_id_json('ID.json', dir_name, unknown_speakers)
             date_folder = datetime.now().strftime('%Y-%m-%d')
-            # audio_s3_path = f'audio-files/{date_folder}/{id_str}/{os.path.basename(audio_file)}'
-            # doa_s3_path = f'doa-files/{date_folder}/{id_str}/{os.path.basename(doa_file)}'
+
+            audio_s3_path = f'trials/{date_folder}/{trial}/audio-files/{id_str}/{os.path.basename(audio_file)}'
+            doa_s3_path = f'trials/{date_folder}/{trial}/doa-files/{id_str}/{os.path.basename(doa_file)}'
             
             # # Upload audio file to S3
-            # upload_to_s3(audio_file, audio_s3_path)
+            upload_to_s3(audio_file, audio_s3_path)
 
             # # Upload doa file to S3
-            # upload_to_s3(doa_file, doa_s3_path)
+            upload_to_s3(doa_file, doa_s3_path)
 
             close_audio_stream(stream, p)
 

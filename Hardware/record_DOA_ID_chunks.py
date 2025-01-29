@@ -154,6 +154,24 @@ def word_to_num(word):
     return mapping.get(word.lower(), 0)
 
 
+def upload_json_to_s3(local_file_path, file_key=None):
+    # Validate the file exists locally
+    if not os.path.isfile(local_file_path):
+        raise FileNotFoundError(f"The file {local_file_path} does not exist.")
+
+    # Use the local file's name as the key if not provided
+    if file_key is None:
+        file_key = os.path.basename(local_file_path)
+
+    try:
+        # Upload the file
+        s3.upload_file(local_file_path, S3_BUCKET_NAME, file_key)
+        print(f"File {local_file_path} successfully uploaded to {S3_BUCKET_NAME}/{file_key}.")
+    except Exception as e:
+        print(f"Failed to upload {local_file_path} to S3: {e}")
+        raise
+    print(f"File {file_key} updated successfully in bucket {S3_BUCKET_NAME}.")
+
 def upload_json_to_dynamodb(id_file, table_name):
     # Initialize a DynamoDB resource
     dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION,
@@ -234,13 +252,16 @@ def main():
         numeric_ids = sorted([word_to_num(info['ID'][2]) for info in ID_data.values()])
         id_str = '_'.join(map(str, numeric_ids))
 
-    
+    # Upload ID.json to S3
+    upload_json_to_s3(ID_file, 'ID.json')
+
     # Start recording
     while True:
         if iteration >= sec:
             print("DONE RECORDING")
             
             upload_json_to_dynamodb('assign_speaker/ID.json', 'Team_assignment')
+
             break
         else:
             dev = find_device()
