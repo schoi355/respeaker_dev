@@ -14,6 +14,15 @@ from decimal import Decimal
 from collections import defaultdict
 import sys
 import argparse
+from gpiod.line_settings import LineSettings
+from gpiod.line import Direction, Value
+import gpiod  
+import time
+import board
+import busio
+from PIL import Image, ImageDraw, ImageFont
+import adafruit_ssd1306
+
 
 RESPEAKER_RATE = 16000
 RESPEAKER_CHANNELS = 1 # change base on firmwares, 1_channel_firmware.bin as 1 or 6_channels_firmware.bin as 6
@@ -23,10 +32,24 @@ RESPEAKER_INDEX = 1  # refer to input device id
 CHUNK = 1024
 CHUNKSIZE = 15 # sec
 
+def read_cfg(file_path):
+    config = {}
+    
+    with open(file_path, 'r') as file:
+        for line in file:
+            line = line.strip()
+            if not line or line.startswith("#"): 
+                continue            
+            if '=' in line:
+                key, value = line.split('=', 1)
+                config[key.strip()] = value.strip().strip("'\"") 
+    return config
 
-AWS_ACCESS_KEY_ID = 'AKIA5ILC25FLJDD4PYMI'
-AWS_SECRET_ACCESS_KEY = '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'
-AWS_REGION = 'us-east-2'
+file_path = '/home/respeaker2/respeaker_dev/Hardware/application.cfg'
+config = read_cfg(file_path)
+AWS_ACCESS_KEY_ID = config.get('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = config.get('AWS_SECRET_ACCESS_KEY')
+AWS_REGION = config.get('AWS_REGION')
 S3_BUCKET_NAME = 'respeaker-recordings'
 
 s3 = boto3.client(
@@ -201,6 +224,49 @@ def update_id_json(id_file, dir_name, unknown_speakers):
     except Exception as e:
         print(f"Failed to update {id_file}: {e}")
 
+def upload_json_to_s3(local_file_path, file_key=None):
+    # Validate the file exists locally
+    if not os.path.isfile(local_file_path):
+        raise FileNotFoundError(f"The file {local_file_path} does not exist.")
+    # Use the local file's name as the key if not provided
+    if file_key is None:
+        file_key = os.path.basename(local_file_path)
+    try:
+        # Upload the file
+        s3.upload_file(local_file_path, S3_BUCKET_NAME, file_key)
+        print(f"File {local_file_path} successfully uploaded to {S3_BUCKET_NAME}/{file_key}.")
+    except Exception as e:
+        print(f"Failed to upload {local_file_path} to S3: {e}")
+        raise
+    print(f"File {file_key} updated successfully in bucket {S3_BUCKET_NAME}.")
+
+
+
+chip = gpiod.Chip("/dev/gpiochip4")
+i2c = busio.I2C(board.SCL, board.SDA)
+disp = adafruit_ssd1306.SSD1306_I2C(128, 64, i2c, addr=0x3C)
+
+def button_setup(button_tuple):
+    line_settings = LineSettings()
+    line_settings.direction = Direction.INPUT
+
+    line_request = chip.request_lines(
+        config={
+            button_tuple: line_settings
+        },
+        consumer="button-reader",
+        event_buffer_size=1
+    )
+    return line_request
+
+def display_text(text1, range1, text2='', range2=(0,0)):
+    image = Image.new("1", (disp.width, disp.height))
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.load_default()
+    draw.text(range1, text1, font=font, fill=255,)
+    draw.text(range2, text2, font=font, fill=255,)
+    disp.image(image)
+    disp.show()
 
 def main():
     os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
@@ -209,10 +275,11 @@ def main():
     parser.add_argument("-s", "--second", required=True, help="recording duration")
     args = parser.parse_args()
     dir_name = args.directory
+    trial = str(dir_name)[-1]
     duration = args.second
 
     dir_path = dir_name + '/recorded_data/'
-    subprocess.run(['python3', 'assign_speaker_pi.py', '-d', dir_name], check=True)
+    subprocess.run(['python3','/home/respeaker2/respeaker_dev/Hardware/assign_speaker_pi.py', '-d', dir_name], check=True)
 
     # After assign_speaker.py completes, proceed with the rest of this script
     print("assign_speaker_pi.py has finished. Proceeding with the next part.")
@@ -232,13 +299,30 @@ def main():
         filtered_numeric_ids = list(filter(lambda x: x!= 0, numeric_ids))
         id_str = '_'.join(map(str, filtered_numeric_ids))
 
+    # Set up the OLED
+    b1 = 6
+    b2 = 5
+    b3 = 4
+
+    prev_line1_state = Value.ACTIVE
+    button_request = button_setup((b1, b2, b3)) 
+
+    upload_json_to_s3(ID_file, 'ID.json')
 
     # Start recording
     while True:
+        line1 = button_request.get_value(b2)
+        prev_line1_state = line1
         if iteration >= sec:
-            print("DONE RECORDING")
-
+            print("RECORDING FINISHED")
+            display_text("RECORDING FINISHED", (10,15))
             upload_json_to_dynamodb(ID_file, 'Team_assignment')
+            button_request.release()
+            break
+        elif line1 == Value.INACTIVE:
+            print("RECORDING FINISHED")
+            display_text("RECORDING FINISHED", (10,15))
+            button_request.release()
             break
         else:
             dev = find_device()
@@ -249,18 +333,22 @@ def main():
             doa_file   = dir_path + 'DOA_%d.json'%iteration
 
             print("RECORDING STARTED")
+            display_text("RECORDING STARTED", (10,15), "Finish recording -->", (20, 40))
                 
             unknown_speakers = record_audio(stream, p, dev, ID_file, audio_file, doa_file, unknown_speakers)
             update_id_json('ID.json', dir_name, unknown_speakers)
             date_folder = datetime.now().strftime('%Y-%m-%d')
+
             # audio_s3_path = f'audio-files/{date_folder}/{id_str}/{os.path.basename(audio_file)}'
             # doa_s3_path = f'doa-files/{date_folder}/{id_str}/{os.path.basename(doa_file)}'
+            audio_s3_path = f'trials/{date_folder}/{trial}/audio-files/{id_str}/{os.path.basename(audio_file)}'
+            doa_s3_path = f'trials/{date_folder}/{trial}/doa-files/{id_str}/{os.path.basename(doa_file)}'
             
             # # Upload audio file to S3
-            # upload_to_s3(audio_file, audio_s3_path)
+            upload_to_s3(audio_file, audio_s3_path)
 
             # # Upload doa file to S3
-            # upload_to_s3(doa_file, doa_s3_path)
+            upload_to_s3(doa_file, doa_s3_path)
 
             close_audio_stream(stream, p)
 

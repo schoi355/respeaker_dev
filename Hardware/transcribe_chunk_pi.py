@@ -20,20 +20,32 @@ import argparse
 import boto3
 from datetime import datetime
 
-<<<<<<< HEAD
-
 RESPEAKER_RATE = 16000
 RESPEAKER_CHANNELS = 1
 RESPEAKER_WIDTH = 2
 RESPEAKER_INDEX = 5
 CHUNK = 1024
 RECORD_SECONDS = 15
-=======
 CHUNKSIZE = 15
->>>>>>> 1fa7869 (Fix bugs)
-AWS_ACCESS_KEY_ID = 'AKIA5ILC25FLJDD4PYMI'
-AWS_SECRET_ACCESS_KEY = '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'
-AWS_REGION = 'us-east-2'
+
+def read_cfg(file_path):
+    config = {}
+    
+    with open(file_path, 'r') as file:
+        for line in file:
+            line = line.strip()
+            if not line or line.startswith("#"): 
+                continue            
+            if '=' in line:
+                key, value = line.split('=', 1)
+                config[key.strip()] = value.strip().strip("'\"") 
+    return config
+
+file_path = 'application.cfg'
+config = read_cfg(file_path)
+AWS_ACCESS_KEY_ID = config.get('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = config.get('AWS_SECRET_ACCESS_KEY')
+AWS_REGION = config.get('AWS_REGION')
 S3_BUCKET_NAME = 'respeaker-recordings'
 
 # Create a queue to hold file paths
@@ -70,7 +82,7 @@ def process_audio(wav_file, model_name):
     :raises: Exception if an error occurs during processing
     """
 
-    model = f"./whisper.cpp/models/ggml-{model_name}.bin"
+    model = f"/home/respeaker2/respeaker_dev/Hardware/whisper.cpp/models/ggml-{model_name}.bin"
 
     # Check if the file exists
     if not os.path.exists(model):
@@ -80,16 +92,13 @@ def process_audio(wav_file, model_name):
         raise FileNotFoundError(f"WAV file not found: {wav_file}")
 
     # full_command = f"./main -m {model} -f {wav_file} -np -nt -ml 16 -oj"
-    full_command = f"./whisper.cpp/main -m {model} -f {wav_file} -np -ml 16 -oj"
+    full_command = f"/home/respeaker2/respeaker_dev/Hardware/whisper.cpp/main -m {model} -f {wav_file} -np -ml 16 -oj"
 
     # Execute the command
     process = subprocess.Popen(full_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     # Get the output and error (if any)
     output, error = process.communicate()
-
-    # if error:
-    #     raise Exception(f"Error processing audio: {error.decode('utf-8')}")
 
     # Process and return the output string
     decoded_str = output.decode('utf-8').strip()
@@ -147,17 +156,12 @@ def on_created(event):
             doa_file = file_path
             doa_queue.put(doa_file)
 
-    
-
 def word_to_num(word):
     mapping = {
         '1': 1, '2': 2, '3': 3, '4': 4, '5': 5,
         '6': 6, '7': 7, '8': 8, '9': 9, '10': 10
     }
     return mapping.get(word.lower(), 0)
-
-
-
 
 
 def main():
@@ -175,7 +179,7 @@ def main():
         print("The directory does not exist. Create a directory and try again")
     
     model = "tiny.en"
-    watched_directory       = dir_path
+    watched_directory = dir_path
 
     # Create an event handler and observer    
     event_handler = FileSystemEventHandler()
@@ -183,10 +187,12 @@ def main():
     observer = Observer()
     observer.schedule(event_handler, path=watched_directory, recursive=True)
 
+    # url = "http://3.131.78.98:8080/check_speakers_not_spoken"
+    # url2 = "http://3.131.78.98:8080/analysis"
     url = "http://127.0.0.1:8080/check_speakers_not_spoken"
     url2 = "http://127.0.0.1:8080/analysis"
-    url3 = "http://127.0.0.1:8080/word_concatenations"
-    url4 = "http://127.0.0.1:8080/emotion_check"
+    # url3 = "http://127.0.0.1:8080/word_concatenations"
+    # url4 = "http://127.0.0.1:8080/emotion_check"
     print(f"Watching directory: {watched_directory}")
     observer.start()
     os.environ['LAST_ITERATION'] = ""
@@ -218,7 +224,8 @@ def main():
                 print("New flask has been called at", iteration)
 
                 date_folder = datetime.now().strftime('%Y-%m-%d')
-                transcription_s3_path = f'transcription-files/{date_folder}/{id_str}/{transcription_name}'
+                trial = str(dir_name)[-1]   
+                transcription_s3_path = f'trials/{date_folder}/{trial}/transcription-files/{id_str}/{transcription_name}'
 
                 upload_to_s3(transcription_file, transcription_s3_path)
 
@@ -233,13 +240,13 @@ def main():
                     response2 = requests.post(url2, json=data2)
                     print("Response from url2", response2)
 
-                data3 = {"current_iteration": iteration}
-                response3 = requests.post(url3, json=data3)
+                # data3 = {"current_iteration": iteration}
+                # response3 = requests.post(url3, json=data3)
 
-                # Call url4 after EVERY chunk once there are 4 existing chunks
-                if iteration >= (RECORD_SECONDS * 4):
-                    data4 = {"current_iteration": iteration}
-                    response4 = requests.post(url4, json=data4)
+                # # Call url4 after EVERY chunk once there are 4 existing chunks
+                # if iteration >= (RECORD_SECONDS * 4):
+                #     data4 = {"current_iteration": iteration}
+                #     response4 = requests.post(url4, json=data4)
         
     except KeyboardInterrupt:
         observer.stop()

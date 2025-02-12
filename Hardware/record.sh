@@ -1,4 +1,6 @@
-source venv/bin/activate
+#!/bin/bash
+
+source ../venv/bin/activate
 
 TODAY=$(date +"%b%d")
 HIGHEST_COUNTER=$(ls -d dataset/${TODAY}_* 2>/dev/null | awk -F"${TODAY}_" '{print $2}' | sort -n | tail -1)

@@ -1,1 +1,11 @@
 __pycache__
+Hardware/application.cfg
+BosonUSB/
+Hardware/dataset/
+Hardware/oled.py
+Hardware/whisper.cpp/
+T1.ipynb
+button-shim/
+buttonshim.ipynb
+chunks/
+venv/

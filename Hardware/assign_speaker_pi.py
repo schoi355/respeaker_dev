@@ -110,7 +110,7 @@ def main():
     dir_name = args.directory
     dir_path = dir_name+'/assign_speaker/'
 
-    ID_file            = dir_path+'ID.json'
+    ID_file = dir_path+'ID.json'
     ID_list = {}
 
     # Start recording
