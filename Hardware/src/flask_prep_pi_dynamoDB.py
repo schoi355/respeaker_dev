@@ -28,8 +28,11 @@ def read_cfg(file_path):
                 config[key.strip()] = value.strip().strip("'\"") 
     return config
 
-file_path = 'application.cfg'
-config = read_cfg(file_path)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+HARDWARE_DIR = os.path.dirname(SCRIPT_DIR)
+
+cfg_path = os.path.join(HARDWARE_DIR, "application.cfg")
+config = read_cfg(cfg_path)
 AWS_ACCESS_KEY_ID = config.get('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = config.get('AWS_SECRET_ACCESS_KEY')
 AWS_REGION = config.get('AWS_REGION')

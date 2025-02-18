@@ -1,16 +1,7 @@
 import subprocess
-import sys
 import os
 import json
-import usb.core
-import usb.util
-import pyaudio
-import wave
-import numpy as np
-from tuning import Tuning
 import time
-import glob
-import threading
 from queue import Queue
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -41,8 +32,11 @@ def read_cfg(file_path):
                 config[key.strip()] = value.strip().strip("'\"") 
     return config
 
-file_path = 'application.cfg'
-config = read_cfg(file_path)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+HARDWARE_DIR = os.path.dirname(SCRIPT_DIR)
+
+cfg_path = os.path.join(HARDWARE_DIR, "application.cfg")
+config = read_cfg(cfg_path)
 AWS_ACCESS_KEY_ID = config.get('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = config.get('AWS_SECRET_ACCESS_KEY')
 AWS_REGION = config.get('AWS_REGION')
@@ -82,7 +76,7 @@ def process_audio(wav_file, model_name):
     :raises: Exception if an error occurs during processing
     """
 
-    model = f"/home/respeaker2/respeaker_dev/Hardware/whisper.cpp/models/ggml-{model_name}.bin"
+    model = HARDWARE_DIR + f"/whisper.cpp/models/ggml-{model_name}.bin"
 
     # Check if the file exists
     if not os.path.exists(model):
@@ -92,7 +86,7 @@ def process_audio(wav_file, model_name):
         raise FileNotFoundError(f"WAV file not found: {wav_file}")
 
     # full_command = f"./main -m {model} -f {wav_file} -np -nt -ml 16 -oj"
-    full_command = f"/home/respeaker2/respeaker_dev/Hardware/whisper.cpp/main -m {model} -f {wav_file} -np -ml 16 -oj"
+    full_command = HARDWARE_DIR + f"/whisper.cpp/main -m {model} -f {wav_file} -np -ml 16 -oj"
 
     # Execute the command
     process = subprocess.Popen(full_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

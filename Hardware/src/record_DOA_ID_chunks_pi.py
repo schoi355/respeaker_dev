@@ -45,8 +45,11 @@ def read_cfg(file_path):
                 config[key.strip()] = value.strip().strip("'\"") 
     return config
 
-file_path = '/home/respeaker2/respeaker_dev/Hardware/application.cfg'
-config = read_cfg(file_path)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+HARDWARE_DIR = os.path.dirname(SCRIPT_DIR)
+
+cfg_path = os.path.join(HARDWARE_DIR, "application.cfg")
+config = read_cfg(cfg_path)
 AWS_ACCESS_KEY_ID = config.get('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = config.get('AWS_SECRET_ACCESS_KEY')
 AWS_REGION = config.get('AWS_REGION')
@@ -240,13 +243,7 @@ def upload_json_to_s3(local_file_path, file_key=None):
         raise
     print(f"File {file_key} updated successfully in bucket {S3_BUCKET_NAME}.")
 
-
-
-chip = gpiod.Chip("/dev/gpiochip4")
-i2c = busio.I2C(board.SCL, board.SDA)
-disp = adafruit_ssd1306.SSD1306_I2C(128, 64, i2c, addr=0x3C)
-
-def button_setup(button_tuple):
+def button_setup(chip, button_tuple):
     line_settings = LineSettings()
     line_settings.direction = Direction.INPUT
 
@@ -259,7 +256,7 @@ def button_setup(button_tuple):
     )
     return line_request
 
-def display_text(text1, range1, text2='', range2=(0,0)):
+def display_text(disp, text1, range1, text2='', range2=(0,0)):
     image = Image.new("1", (disp.width, disp.height))
     draw = ImageDraw.Draw(image)
     font = ImageFont.load_default()
@@ -267,6 +264,45 @@ def display_text(text1, range1, text2='', range2=(0,0)):
     draw.text(range2, text2, font=font, fill=255,)
     disp.image(image)
     disp.show()
+
+def display_text2(disp, text0, text1, text2, text3):
+    image = Image.new("1", (disp.width, disp.height))
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.load_default()
+    draw.text((15, 0), text0, font=font, fill=255,)
+    draw.text((120, 15), text1, font=font, fill=255,)
+    draw.text((120, 40), text2, font=font, fill=255,)
+    draw.text((0, 25), text3, font=font, fill=255,)
+    disp.image(image)
+    disp.show()
+
+def save_config(disp, config_file, key, value):
+    try:
+        with open(config_file, "r") as f:
+            config = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        config = {}
+    
+    config[key] = value
+    
+    with open(config_file, "w") as f:
+        json.dump(config, f, indent=4)
+    display_text(disp, f"{key} is set to {value}", (5, 15))
+    time.sleep(2)
+
+def select_id(disp, config_file, key, prompt, button_request, b1, b2, b3):
+    value = 1
+    # display_text2(f"{prompt}: {value}", "+", "--", "Select")
+    while True:
+        display_text2(disp, f"{prompt}: {value}", "+", "--", "Select")
+        l1, l2, l3 = (button_request.get_value(b) for b in [b1, b2, b3])
+        if l1 == Value.INACTIVE:
+            value += 1
+        elif l2 == Value.INACTIVE:
+            value -= 1
+        elif l3 == Value.INACTIVE:
+            save_config(disp, config_file, key, value)
+            break
 
 def main():
     os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
@@ -278,20 +314,44 @@ def main():
     trial = str(dir_name)[-1]
     duration = args.second
 
+    ID_file  = dir_name + '/assign_speaker/ID.json'
+    config_file = dir_name + '/assign_speaker/config.json'
+
+    pi_id = 2   # Change this according to the sd card number
+    b1, b2, b3 = 6, 5, 4
+
+    chip = gpiod.Chip("/dev/gpiochip4")
+    i2c = busio.I2C(board.SCL, board.SDA)
+    disp = adafruit_ssd1306.SSD1306_I2C(128, 64, i2c, addr=0x3C)
+    button_request = button_setup(chip, (b1, b2, b3)) 
+    for key, prompt in [("project_id", "Set Project ID"), ("class_id", "Set Class ID")]:
+        while button_request.get_value(b1) == Value.ACTIVE and button_request.get_value(b2) == Value.ACTIVE:
+            display_text(disp, f"{prompt} -->", (40, 15), "Set as Default -->", (40, 40))
+            pass
+        if button_request.get_value(b2) == Value.INACTIVE:
+            save_config(disp, config_file, key, 1) # default project/class id is 1
+        elif button_request.get_value(b1) == Value.INACTIVE:
+            select_id(disp, config_file, key, prompt, button_request, b1, b2, b3)
+    save_config(disp, config_file, "pi_id", pi_id)
+    button_request.release()
+    chip.close()
+    i2c.deinit()
+
+    # Calibration
     dir_path = dir_name + '/recorded_data/'
-    subprocess.run(['python3','/home/respeaker2/respeaker_dev/Hardware/assign_speaker_pi.py', '-d', dir_name], check=True)
+    cal_path = SCRIPT_DIR + '/assign_speaker_pi.py'
+    subprocess.run(['python3',cal_path, '-d', dir_name], check=True)
 
     # After assign_speaker.py completes, proceed with the rest of this script
     print("assign_speaker_pi.py has finished. Proceeding with the next part.")
 
-    ID_file  = dir_name + '/assign_speaker/ID.json'
+    
     sec = int(duration)
     os.environ['LAST_ITERATION'] = str(sec)
     iteration = 0
     unknown_speakers = defaultdict(lambda: {'start': float('inf'), 'end': float('-inf'), 'ids': []})
 
     # Load IDs from the ID file
-    print(ID_file)
     with open(ID_file, 'r') as f:
         ID_data = json.load(f)
         # Convert word-based numeric IDs to integers and sort them
@@ -300,12 +360,12 @@ def main():
         id_str = '_'.join(map(str, filtered_numeric_ids))
 
     # Set up the OLED
-    b1 = 6
-    b2 = 5
-    b3 = 4
+    chip = gpiod.Chip("/dev/gpiochip4")
+    i2c = busio.I2C(board.SCL, board.SDA)
+    disp = adafruit_ssd1306.SSD1306_I2C(128, 64, i2c, addr=0x3C)
 
     prev_line1_state = Value.ACTIVE
-    button_request = button_setup((b1, b2, b3)) 
+    button_request = button_setup(chip, (b1, b2, b3)) 
 
     upload_json_to_s3(ID_file, 'ID.json')
 
@@ -315,13 +375,13 @@ def main():
         prev_line1_state = line1
         if iteration >= sec:
             print("RECORDING FINISHED")
-            display_text("RECORDING FINISHED", (10,15))
+            display_text(disp, "RECORDING FINISHED", (10,15))
             upload_json_to_dynamodb(ID_file, 'Team_assignment')
             button_request.release()
             break
         elif line1 == Value.INACTIVE:
             print("RECORDING FINISHED")
-            display_text("RECORDING FINISHED", (10,15))
+            display_text(disp, "RECORDING FINISHED", (10,15))
             button_request.release()
             break
         else:
@@ -333,7 +393,7 @@ def main():
             doa_file   = dir_path + 'DOA_%d.json'%iteration
 
             print("RECORDING STARTED")
-            display_text("RECORDING STARTED", (10,15), "Finish recording -->", (20, 40))
+            display_text(disp, "RECORDING STARTED", (10,15), "Hold to Finish recording -->", (0, 40))
                 
             unknown_speakers = record_audio(stream, p, dev, ID_file, audio_file, doa_file, unknown_speakers)
             update_id_json('ID.json', dir_name, unknown_speakers)
