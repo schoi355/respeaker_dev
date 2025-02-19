@@ -25,8 +25,6 @@ CHUNKSIZE = 15 # sec
 
 # TODO: Set using cmd args
 PROJECT_NO = 1
-CLASS_NO = 1
-dir_name = ''
 TRIAL_NO = ''
 date_folder = datetime.now().strftime('%Y-%m-%d')
 
