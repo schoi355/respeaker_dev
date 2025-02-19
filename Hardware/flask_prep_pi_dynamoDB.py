@@ -35,6 +35,7 @@ dir_name = args.directory
 # TODO: Set using cmd args
 PROJECT_NO = 1
 CLASS_NO = 1
+PI_ID = 1
 date_folder = datetime.now().strftime('%Y-%m-%d')
 TRIAL_NO = str(dir_name)[-1]
 
@@ -74,7 +75,7 @@ def word_to_num(word):
 
 
 def get_id_json_from_s3():
-    file_key = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Trial_{TRIAL_NO}/ID.json'
+    file_key = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/ID.json'
     response = s3.get_object(Bucket=S3_BUCKET_NAME, Key=file_key)
     content = response['Body'].read().decode('utf-8')
     return json.loads(content)

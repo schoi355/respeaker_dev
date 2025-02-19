@@ -25,7 +25,8 @@ CHUNKSIZE = 15 # sec
 
 # TODO: Set using cmd args
 PROJECT_NO = 1
-TRIAL_NO = ''
+CLASS_NO = 1
+PI_ID = 1
 date_folder = datetime.now().strftime('%Y-%m-%d')
 
 
@@ -66,9 +67,6 @@ def assign_angle(ID_file):
         print('The range of angles are assigned:')
         return ang_dic
 
-        # else:
-        #     print('The number of people does not match with the number of IDs')
-
 def find_device():
     dev = usb.core.find(idVendor=0x2886, idProduct=0x0018)
     if dev is None:
@@ -84,7 +82,6 @@ def open_audio_stream(p):
         input_device_index=RESPEAKER_INDEX,
     )
     return stream
-
 
 def record_audio(stream, p, dev, ID_file, audio_file, doa_file, unknown_speakers):
     data_list = []
@@ -182,7 +179,7 @@ def upload_json_to_dynamodb(id_file, table_name):
     response = table.put_item(Item=item)
     print(f"Uploaded session 3 with all speakers to DynamoDB")
 
-def update_id_json(id_file, dir_name, unknown_speakers):
+def update_id_json(trial_no, id_file, dir_name, unknown_speakers):
 
     print(unknown_speakers)
     try:
@@ -204,7 +201,7 @@ def update_id_json(id_file, dir_name, unknown_speakers):
             json.dump(id_data, file, indent=4)
 
         id_file_name = os.path.basename(dir_name + '/assign_speaker/ID.json')
-        idjson_s3_path = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Trial_{TRIAL_NO}/{id_file_name}'
+        idjson_s3_path = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{trial_no}/{id_file_name}'
         # Upload ID.json file to S3
         upload_to_s3(dir_name + '/assign_speaker/ID.json', idjson_s3_path)
 
@@ -220,8 +217,8 @@ def main():
     parser.add_argument("-s", "--second", required=True, help="recording duration")
     args = parser.parse_args()
     dir_name = args.directory
-    TRIAL_NO = str(dir_name)[-1]
     duration = args.second
+    TRIAL_NO = str(dir_name)[-1]
 
     dir_path = dir_name + '/recorded_data/'
     subprocess.run(['python3', 'assign_speaker_pi.py', '-d', dir_name], check=True)
@@ -263,13 +260,13 @@ def main():
             print("RECORDING STARTED")
                 
             unknown_speakers = record_audio(stream, p, dev, ID_file, audio_file, doa_file, unknown_speakers)
-            update_id_json('ID.json', dir_name, unknown_speakers)
+            update_id_json(TRIAL_NO, 'ID.json', dir_name, unknown_speakers)
             date_folder = datetime.now().strftime('%Y-%m-%d')
             id_file_name = os.path.basename(dir_name + '/assign_speaker/ID.json')
 
-            audio_s3_path = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Trial_{TRIAL_NO}/audio-files/{id_str}/{os.path.basename(audio_file)}'
-            doa_s3_path = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Trial_{TRIAL_NO}/doa-files/{id_str}/{os.path.basename(doa_file)}'
-            idjson_s3_path = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Trial_{TRIAL_NO}/{id_file_name}'
+            audio_s3_path = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/audio-files/{id_str}/{os.path.basename(audio_file)}'
+            doa_s3_path = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/doa-files/{id_str}/{os.path.basename(doa_file)}'
+            idjson_s3_path = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/{id_file_name}'
             
             # Upload ID.json file to S3
             upload_to_s3(dir_name + '/assign_speaker/ID.json', idjson_s3_path)
@@ -279,6 +276,8 @@ def main():
 
             # # Upload doa file to S3
             upload_to_s3(doa_file, doa_s3_path)
+
+            print("FILES UPLOADED TO S3")
 
             close_audio_stream(stream, p)
 

@@ -189,9 +189,11 @@ def main():
             if not doa_queue.empty() and not audio_queue.empty():
                 audio_file = audio_queue.get()
                 doa_file = doa_queue.get()
+                print("ERRRROR", os.path.splitext(os.path.basename(audio_file)))
                 transcription_name = os.path.splitext(os.path.basename(audio_file))[0] + '.wav.json'
                 transcription_file = os.path.join(watched_directory, transcription_name)
                 iteration = int(os.path.splitext(os.path.basename(audio_file))[0].split('_')[1])
+                
                 if doa_queue.qsize() < 1:
                     time.sleep(15)
                     print("Waiting for the audio/doa coming")
@@ -214,9 +216,10 @@ def main():
                 # TODO: Set using cmd args
                 PROJECT_NO = 1
                 CLASS_NO = 1
+                PI_ID = 1
                 TRIAL_NO = str(dir_name)[-1]
 
-                transcription_s3_path = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Trial_{TRIAL_NO}/transcription-files/{id_str}/{transcription_name}'
+                transcription_s3_path = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/transcription-files/{id_str}/{transcription_name}'
 
                 upload_to_s3(transcription_file, transcription_s3_path)
 
