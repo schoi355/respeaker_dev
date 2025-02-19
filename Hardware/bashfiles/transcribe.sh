@@ -3,6 +3,8 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
+echo "transcribe.sh started at $(date)" >> $PROJECT_ROOT/Hardware/logs/transcribe.log
+
 source $PROJECT_ROOT/venv/bin/activate
 
 TODAY=$(date +"%b%d")
@@ -15,4 +17,5 @@ if [ -z "$HIGHEST_COUNTER" ]; then
 fi
 
 python3 $PROJECT_ROOT/Hardware/src/transcribe_chunk_pi.py -d $DIRPATH
+
 
