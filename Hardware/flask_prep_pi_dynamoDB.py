@@ -36,8 +36,9 @@ dir_name = args.directory
 PROJECT_NO = 1
 CLASS_NO = 1
 PI_ID = 1
-date_folder = datetime.now().strftime('%Y-%m-%d')
-TRIAL_NO = str(dir_name)[-1]
+# date_folder = datetime.now().strftime('%Y-%m-%d')
+date_folder = '2025-02-20'
+TRIAL_NO = 1
 
 dynamodb = boto3.resource(
     'dynamodb',
@@ -53,7 +54,8 @@ s3 = boto3.client(
     region_name=AWS_REGION
 )
 
-table = dynamodb.Table('respeaker_data')
+table = dynamodb.Table('respeaker-analysis')
+S3_BUCKET_NAME = 'respeaker-recordings'
 
 # Initialize NLTK stemmer
 stemmer = PorterStemmer()
@@ -64,8 +66,6 @@ nlp = spacy.load("en_core_web_sm")
 # Load LLM
 classifier = pipeline(task="text-classification", model="SamLowe/roberta-base-go_emotions", top_k=None)
 
-S3_BUCKET_NAME = 'respeaker-recordings'
-
 
 def word_to_num(word):
     mapping = {
@@ -74,12 +74,32 @@ def word_to_num(word):
     return mapping.get(word.lower(), 0)
 
 
+def get_dynamic_folder_name(prefix):
+    response = s3.list_objects_v2(
+        Bucket=S3_BUCKET_NAME,
+        Prefix=prefix,
+        Delimiter='/',
+    )
+
+    if 'CommonPrefixes' in response:
+        dynamic = response['CommonPrefixes'][0]['Prefix'].split('/')[-2]
+        return dynamic
+    
+    return '1_2_3_4'
+
+
 def get_id_json_from_s3():
     file_key = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/ID.json'
     response = s3.get_object(Bucket=S3_BUCKET_NAME, Key=file_key)
     content = response['Body'].read().decode('utf-8')
     return json.loads(content)
 
+def get_transcription_from_s3(file_key):
+    response = s3.get_object(Bucket=S3_BUCKET_NAME, Key=file_key)
+    content = response['Body'].read().decode('utf-8')
+    if not content:
+        return None
+    return json.loads(content)
 
 def get_id_str():
     # ID_file  = DIR_NAME + '/assign_speaker/ID.json'
@@ -103,8 +123,12 @@ def get_lemma(word):
     doc = nlp(word)
     return doc[0].lemma_
 
+
 @application.route('/check_speakers_not_spoken', methods=['POST'])
 def check_speakers_not_spoken():
+    """
+    return speakerId of ppl silent -> dynamoDB
+    """
     # parser = argparse.ArgumentParser(description="directory")
     # parser.add_argument("-d", "--directory", required=True, help="directory that will contain the dataset")
     # args = parser.parse_args()
@@ -115,13 +139,13 @@ def check_speakers_not_spoken():
     # with open(DIR_NAME + '/assign_speaker/ID.json', 'r') as file:
     #     data = json.load(file)
 
-    data = get_id_json_from_s3()
-
+    id_json = get_id_json_from_s3()
+    print(id_json)
     # Initialize an empty set for preset_speakers
     preset_speakers = set()
 
     # Iterate through the data and add the first value of the ID array for each person to the set
-    for person in data.values():
+    for person in id_json.values():
         if person['ID']:  # Check if the ID list is not empty
             preset_speakers.add(person['ID']) 
 
@@ -142,36 +166,50 @@ def check_speakers_not_spoken():
     cur_time_formatted = datetime.now().strftime('%H:%M:%S')
 
     try:
-        # Fetch the current item based on group_id
-        response = table.get_item(Key={'group_id': id_str})
-        item = response.get('Item')
+        # # Fetch the current item based on group_id
+        # response = table.get_item(Key={'group_id': id_str})
+        # item = response.get('Item')
 
-        if item:
-            # Ensure current date's map exists directly within the item
-            if cur_date_formatted not in item:
-                item[cur_date_formatted] = {}
+        # if item:
+        #     # Ensure current date's map exists directly within the item
+        #     if cur_date_formatted not in item:
+        #         item[cur_date_formatted] = {}TRIAL_NO
 
-            # Add the new result to the 'check_speakers_not_spoken' section within the current date
-            cur_date_data = item[cur_date_formatted]
-            cur_date_data.setdefault('check_speakers_not_spoken', {})
-            cur_date_data['check_speakers_not_spoken'][f"Results_{cur_time_formatted}"] = speakers_not_spoken_result
+        #     # Add the new result to the 'check_speakers_not_spoken' section within the current date
+        #     cur_date_data = item[cur_date_formatted]
+        #     cur_date_data.setdefault('check_speakers_not_spoken', {})
+        #     cur_date_data['check_speakers_not_spoken'][f"Results_{cur_time_formatted}"] = speakers_not_spoken_result
 
-            # Update the item in the table
-            table.put_item(Item=item)
+        #     # Update the item in the table
+        #     table.put_item(Item=item)
 
-        # Note: This else block can probably be removed since this route is called every 60 seconds, and the words_concat route is called
-        # every 15 seconds, so the item will ALWAYS be there
-        else:
-            # If the item does not exist, create a new one with the date directly under group_id
+        # # Note: This else block can probably be removed since this route is called every 60 seconds, and the words_concat route is called
+        # # every 15 seconds, so the item will ALWAYS be there
+        # else:
+        #     # If the item does not exist, create a new one with the date directly under group_id
+        #     new_item = {
+        #         'group_id': id_str,
+        #         cur_date_formatted: {
+        #             'check_speakers_not_spoken': {
+        #                 f"Results_{cur_time_formatted}": speakers_not_spoken_result
+        #             }
+        #         }
+        #     }
+        #     table.put_item(Item=new_item)
+
             new_item = {
-                'group_id': id_str,
-                cur_date_formatted: {
-                    'check_speakers_not_spoken': {
-                        f"Results_{cur_time_formatted}": speakers_not_spoken_result
-                    }
+                'Date': date_folder,
+                'Pi_id': str(PI_ID),
+                'Trial_No': TRIAL_NO,
+                f'{start_time}-{end_time}': {
+                    'Check_Speakers_Not_Spoken': speakers_not_spoken_result,
+                    'Word_Count': {},
+                    'Off_Topic': {},
+                    'Emotion': {},
                 }
             }
             table.put_item(Item=new_item)
+
 
     except botocore.exceptions.ClientError as error:
         # Handle the exception
@@ -183,7 +221,6 @@ def check_speakers_not_spoken():
     }
 
     print(speakers_not_spoken)
-    
     return jsonify(result)
 
 
@@ -192,17 +229,24 @@ def check_speakers_within_timeframe(start_time, end_time, preset_speakers):
 
     # Define the range of numbers (10 to 240) for the filenames
     for number in range(start_time, end_time + 1, CHUNKSIZE):
-        data = get_id_json_from_s3()
-        for segment in data['transcription']:
-            speaker_name = segment['speaker']
-            speakers_not_spoken.discard(speaker_name)
+        prefix = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/transcription-files/'
+        mid_folder = get_dynamic_folder_name(prefix)
+        file_key = f'{prefix}{mid_folder}/chunk_{number}.wav.json'
+        data = get_transcription_from_s3(file_key)
+        if data:
+            for segment in data['transcription']:
+                speaker_name = segment['speaker']
+                speakers_not_spoken.discard(speaker_name)
 
-    print(list(speakers_not_spoken))
+    print("Speakers not speaking: ", list(speakers_not_spoken))
     return list(speakers_not_spoken)
   
 # TODO: Need to Access the transcribed files from somewhere
 @application.route('/analysis', methods=['POST'])
 def analyze_transcripts():
+    """
+    Off-topic and emotion -> DynamoDB {JSON}
+    """
     parser = argparse.ArgumentParser(description="directory")
     parser.add_argument("-d", "--directory", required=True, help="directory that will contain the dataset")
     args = parser.parse_args()
@@ -222,66 +266,59 @@ def analyze_transcripts():
             preset_speakers.add(person['ID'])
 
     data = request.json
-
-    total_files = int(data['total_files'])
-    x = total_files #last chunk ID + 1
-    print("last_chunk_id", x)
-    x += 1
+    request_start_time = int(data['start_time'])  # Example format: '20'
+    request_end_time = int(data['end_time']) #60
     # Initialize an empty list to store the table data
     all_table_data = []
 
     # Define the range of numbers (105 to 240) for the filenames
-    for number in range(CHUNKSIZE, x, CHUNKSIZE):
+    for number in range(request_start_time, request_end_time, CHUNKSIZE):
         #Provide path to transcript chunks here
-        filename = DIR_NAME + '/recorded_data/chunk_%d.wav.json'%number
-        if os.path.exists(filename):
-            # Load the JSON data from the file
-            with open(filename, 'r') as file:
-                data = json.load(file)
+        prefix = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/transcription-files/'
+        mid_folder = get_dynamic_folder_name(prefix)
+        file_key = f'{prefix}{mid_folder}/chunk_{number}.wav.json'
+        data = get_transcription_from_s3(file_key)
 
             # Extract the speaker names from the JSON data
-            speaker_names = set(word['speaker'] for segment in data['transcription'] for word in segment.get('words', []) if 'speaker' in word)
+        speaker_names = set(word['speaker'] for segment in data['transcription'] for word in segment.get('words', []) if 'speaker' in word)
 
-            # Iterate through segments and extract relevant information
-            for segment in data['transcription']:
-                # segment_id = segment['id']
-                start_time = segment['timestamps']['from']
-                end_time = segment['timestamps']['to']
+        # Iterate through segments and extract relevant information
+        for segment in data['transcription']:
+            # segment_id = segment['id']
+            start_time = segment['timestamps']['from']
+            end_time = segment['timestamps']['to']
 
-                # Extract words spoken by each person
-                texts = segment['text']
-                words = texts.split()
-                # Initialize the speaker name for this segment
-                segment_speaker = None
+            # Extract words spoken by each person
+            texts = segment['text']
+            words = texts.split()
+            # Initialize the speaker name for this segment
+            segment_speaker = None
 
-                for word in words:
-                    if segment['speaker']:
-                        segment_speaker = segment['speaker']
-                    if segment_speaker:
-                        speaker_name = segment_speaker
-                    else:
-                        speaker_name = "unknown"
+            for word in words:
+                if segment['speaker']:
+                    segment_speaker = segment['speaker']
+                if segment_speaker:
+                    speaker_name = segment_speaker
+                else:
+                    speaker_name = "unknown"
 
-                    spoken_text = word if segment_speaker else f"{word} (unknown)"
+                spoken_text = word if segment_speaker else f"{word} (unknown)"
 
-                    all_table_data.append({
-                        'Person': speaker_name,
-                        'Sentence': spoken_text.strip(),
-                        'Start Time': start_time,
-                        'End Time': end_time,
-                        'File Name': filename  # Store the file name
-                    })
+                all_table_data.append({
+                    'Person': speaker_name,
+                    'Sentence': spoken_text.strip(),
+                    'Start Time': start_time,
+                    'End Time': end_time,
+                })
 
     # Merge consecutive sentences spoken by the same person in the final result
     merged_table_data = []
     current_speaker = None
     current_sentence = ""
-    current_file_names = []
 
     for data in all_table_data:
         if current_speaker == data['Person']:
             current_sentence += " " + data['Sentence']
-            current_file_names.append(data['File Name'])
         else:
             if current_sentence:
                 merged_table_data.append({
@@ -289,13 +326,11 @@ def analyze_transcripts():
                     'Sentence': current_sentence,
                     'Start Time': current_start_time,
                     'End Time': current_end_time,
-                    'File Names': ', '.join(current_file_names)  # Store multiple file names as a comma-separated string
                 })
             current_speaker = data['Person']
             current_sentence = data['Sentence']
             current_start_time = data['Start Time']
             current_end_time = data['End Time']
-            current_file_names = [data['File Name']]
 
 
     # Add the last merged sentence
@@ -305,14 +340,10 @@ def analyze_transcripts():
             'Sentence': current_sentence,
             'Start Time': current_start_time,
             'End Time': current_end_time,
-            'File Names': ', '.join(current_file_names)
         })
 
     # Create a DataFrame
     df = pd.DataFrame(merged_table_data)
-
-    # Drop duplicate file names from the 'File Names' column
-    df['File Names'] = df['File Names'].apply(lambda x: ', '.join(sorted(set(x.split(', ')))))
 
     # Calculate the number of words spoken by each person
     df['Word Count'] = df['Sentence'].apply(lambda x: len(x.split()))
@@ -406,32 +437,37 @@ def analyze_transcripts():
     cur_time_formatted = datetime.now().strftime('%H:%M:%S')
 
     try:
-        response = table.get_item(Key={'group_id': id_str})
+        response = table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})
         item = response.get('Item')
+        print("ITEM: ", item)
 
         if item:
-            # Ensure current date exists directly within the item
-            cur_date_data = item.setdefault(cur_date_formatted, {})
-        else:
-            # If the item does not exist, create a new structure for it
-            cur_date_data = {}
-            item = {
-                'group_id': "Apple",
-                cur_date_formatted: cur_date_data
-            }
+            item[f'{request_start_time}-{request_end_time}']['Word_Count'] = json.dumps(word_counts_result)
+            item[f'{request_start_time}-{request_end_time}']['First_Words_Spoken'] = json.dumps(first_words_spoken_result)
+            table.put_item(Item=item)
+        # if item:
+        #     # Ensure current date exists directly within the item
+        #     cur_date_data = item.setdefault(cur_date_formatted, {})
+        # else:
+        #     # If the item does not exist, create a new structure for it
+        #     cur_date_data = {}
+        #     item = {
+        #         'group_id': "Apple",
+        #         cur_date_formatted: cur_date_data
+        #     }
 
-        # Update word counts and first words spoken in separate layers within the current date
-        cur_date_data.setdefault('word_counts', {})
-        cur_date_data['word_counts'][f"Results_{cur_time_formatted}"] = json.dumps(word_counts_result)
+        # # Update word counts and first words spoken in separate layers within the current date
+        # cur_date_data.setdefault('word_counts', {})
+        # cur_date_data['word_counts'][f"Results_{cur_time_formatted}"] = json.dumps(word_counts_result)
 
-        cur_date_data.setdefault('first_words_spoken', {})
-        if first_words_spoken_result:  # Check if the result is not empty before updating
-            cur_date_data['first_words_spoken'][f"Results_{cur_time_formatted}"] = json.dumps(first_words_spoken_result)
-        else:
-            cur_date_data['first_words_spoken'][f"Results_{cur_time_formatted}"] = "{}"
+        # cur_date_data.setdefault('first_words_spoken', {})
+        # if first_words_spoken_result:  # Check if the result is not empty before updating
+        #     cur_date_data['first_words_spoken'][f"Results_{cur_time_formatted}"] = json.dumps(first_words_spoken_result)
+        # else:
+        #     cur_date_data['first_words_spoken'][f"Results_{cur_time_formatted}"] = "{}"
 
-        # Update or create the item in the table
-        table.put_item(Item=item)
+        # # Update or create the item in the table
+        # table.put_item(Item=item)
 
     except botocore.exceptions.ClientError as error:
         print(f"An error occurred: {error}")
@@ -629,3 +665,38 @@ def check_server_working_post():
 
 if __name__ == '__main__':
     application.run(debug=True, port=8000)
+
+
+"""
+{
+    "0-120": {
+        # CSNP: [],
+        word_count: {},
+        off-topic: {
+            1: True
+            2: False
+            3: Silent
+        }
+        emotion_detection: {
+            1: sad,
+            2: happy,
+            3: Silent
+        }
+    },
+
+    "60-180": {
+        CSNP: [],
+        word_count: {},
+        off-topic: {
+            1: True
+            2: False
+        }
+        emotion_detection: {
+            1: sad,
+            2: happy,
+        }
+    }
+}
+
+# Make one combined transcription file and store on S3
+"""

@@ -18,6 +18,7 @@ import requests
 import sys
 import argparse
 import boto3
+import time
 from datetime import datetime
 
 
@@ -220,19 +221,16 @@ def main():
                 TRIAL_NO = str(dir_name)[-1]
 
                 transcription_s3_path = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/transcription-files/{id_str}/{transcription_name}'
-
                 upload_to_s3(transcription_file, transcription_s3_path)
 
                 # Call url once every 60 seconds
-                if iteration % 60 == 0:
-                    data = {"start_time": iteration - 30, "end_time": iteration}
+                if iteration >= 120 and iteration % 60 == 0:
+                    data = {"start_time": iteration - 120, "end_time": iteration}
                     response = requests.post(url, json=data)
-                    
-                #Call url2 once every 300 seconds
-                if iteration % 300:
-                    data2 = {"total_files": iteration}  # Use the last processed iteration
-                    response2 = requests.post(url2, json=data2)
+                    time.sleep(5)
+                    response2 = requests.post(url2, json=data)
                     print("Response from url2", response2)
+
 
                 data3 = {"current_iteration": iteration}
                 response3 = requests.post(url3, json=data3)
