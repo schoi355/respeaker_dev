@@ -22,6 +22,7 @@ import board
 import busio
 from PIL import Image, ImageDraw, ImageFont
 import adafruit_ssd1306
+import re
 
 
 RESPEAKER_RATE = 16000
@@ -33,7 +34,7 @@ CHUNK = 1024
 CHUNKSIZE = 15 # sec
 
 def read_cfg(file_path):
-    config = {}
+    dic = {}
     
     with open(file_path, 'r') as file:
         for line in file:
@@ -42,17 +43,18 @@ def read_cfg(file_path):
                 continue            
             if '=' in line:
                 key, value = line.split('=', 1)
-                config[key.strip()] = value.strip().strip("'\"") 
-    return config
+                dic[key.strip()] = value.strip().strip("'\"") 
+    return dic
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 HARDWARE_DIR = os.path.dirname(SCRIPT_DIR)
+DATE_DIR = datetime.now().strftime('%Y-%m-%d')
 
 cfg_path = os.path.join(HARDWARE_DIR, "application.cfg")
-config = read_cfg(cfg_path)
-AWS_ACCESS_KEY_ID = config.get('AWS_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = config.get('AWS_SECRET_ACCESS_KEY')
-AWS_REGION = config.get('AWS_REGION')
+aws_key = read_cfg(cfg_path)
+AWS_ACCESS_KEY_ID = aws_key.get('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = aws_key.get('AWS_SECRET_ACCESS_KEY')
+AWS_REGION = aws_key.get('AWS_REGION')
 S3_BUCKET_NAME = 'respeaker-recordings'
 
 s3 = boto3.client(
@@ -203,7 +205,7 @@ def upload_json_to_dynamodb(id_file, table_name):
     response = table.put_item(Item=item)
     print(f"Uploaded session 3 with all speakers to DynamoDB")
 
-def update_id_json(id_file, dir_name, unknown_speakers):
+def update_id_json(trial_no, id_file, dir_name, unknown_speakers, project_id, class_id, pi_id):
 
     print(unknown_speakers)
     try:
@@ -223,9 +225,17 @@ def update_id_json(id_file, dir_name, unknown_speakers):
     try:
         with open(dir_name + '/assign_speaker/ID.json', 'w') as file:
             json.dump(id_data, file, indent=4)
+
+        id_file_name = os.path.basename(dir_name + '/assign_speaker/ID.json')
+        idjson_s3_path = f'Project_{project_id}/Class_{class_id}/{DATE_DIR}/Pi_{pi_id}/Trial_{trial_no}/{id_file_name}'
+        # Upload ID.json file to S3
+        upload_to_s3(dir_name + '/assign_speaker/ID.json', idjson_s3_path)
+
         print(f"{id_file} updated with unknown speakers.")
     except Exception as e:
         print(f"Failed to update {id_file}: {e}")
+
+
 
 def upload_json_to_s3(local_file_path, file_key=None):
     # Validate the file exists locally
@@ -276,20 +286,6 @@ def display_text2(disp, text0, text1, text2, text3):
     disp.image(image)
     disp.show()
 
-def save_config(disp, config_file, key, value):
-    try:
-        with open(config_file, "r") as f:
-            config = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        config = {}
-    
-    config[key] = value
-    
-    with open(config_file, "w") as f:
-        json.dump(config, f, indent=4)
-    display_text(disp, f"{key} is set to {value}", (5, 15))
-    time.sleep(2)
-
 def select_id(disp, config_file, key, prompt, button_request, b1, b2, b3):
     value = 1
     # display_text2(f"{prompt}: {value}", "+", "--", "Select")
@@ -301,8 +297,8 @@ def select_id(disp, config_file, key, prompt, button_request, b1, b2, b3):
         elif l2 == Value.INACTIVE:
             value -= 1
         elif l3 == Value.INACTIVE:
-            save_config(disp, config_file, key, value)
             break
+    return value
 
 def main():
     os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
@@ -311,7 +307,6 @@ def main():
     parser.add_argument("-s", "--second", required=True, help="recording duration")
     args = parser.parse_args()
     dir_name = args.directory
-    trial = str(dir_name)[-1]
     duration = args.second
 
     ID_file  = dir_name + '/assign_speaker/ID.json'
@@ -324,15 +319,24 @@ def main():
     i2c = busio.I2C(board.SCL, board.SDA)
     disp = adafruit_ssd1306.SSD1306_I2C(128, 64, i2c, addr=0x3C)
     button_request = button_setup(chip, (b1, b2, b3)) 
+    config = {}
     for key, prompt in [("project_id", "Set Project ID"), ("class_id", "Set Class ID")]:
         while button_request.get_value(b1) == Value.ACTIVE and button_request.get_value(b2) == Value.ACTIVE:
             display_text(disp, f"{prompt} -->", (40, 15), "Set as Default -->", (40, 40))
             pass
         if button_request.get_value(b2) == Value.INACTIVE:
-            save_config(disp, config_file, key, 1) # default project/class id is 1
+            config[key] = 1
+            display_text(disp, f"{key} is set to {1}", (5, 15))
+            time.sleep(2)
+            # save_config(disp, config_file, key, 1) # default project/class id is 1
         elif button_request.get_value(b1) == Value.INACTIVE:
-            select_id(disp, config_file, key, prompt, button_request, b1, b2, b3)
-    save_config(disp, config_file, "pi_id", pi_id)
+            value = select_id(disp, config_file, key, prompt, button_request, b1, b2, b3)
+            config[key] = value
+            display_text(disp, f"{key} is set to {value}", (5, 15))
+            time.sleep(2)
+    config["pi_id"] = pi_id
+    with open(config_file, "w") as f:
+        json.dump(config, f, indent=4)
     button_request.release()
     chip.close()
     i2c.deinit()
@@ -396,18 +400,18 @@ def main():
             display_text(disp, "RECORDING STARTED", (10,15), "Hold to Finish recording -->", (0, 40))
                 
             unknown_speakers = record_audio(stream, p, dev, ID_file, audio_file, doa_file, unknown_speakers)
-            update_id_json('ID.json', dir_name, unknown_speakers)
-            date_folder = datetime.now().strftime('%Y-%m-%d')
-
-            # audio_s3_path = f'audio-files/{date_folder}/{id_str}/{os.path.basename(audio_file)}'
-            # doa_s3_path = f'doa-files/{date_folder}/{id_str}/{os.path.basename(doa_file)}'
-            audio_s3_path = f'trials/{date_folder}/{trial}/audio-files/{id_str}/{os.path.basename(audio_file)}'
-            doa_s3_path = f'trials/{date_folder}/{trial}/doa-files/{id_str}/{os.path.basename(doa_file)}'
+            match = re.search(r'_(\d+)$', dir_name)
+            TRIAL_NO = match.group(1) if match else None
+            update_id_json(TRIAL_NO, 'ID.json', dir_name, unknown_speakers, config["project_id"], config["class_id"], pi_id)
+            id_file_name = os.path.basename(dir_name + '/assign_speaker/ID.json')
             
-            # # Upload audio file to S3
-            upload_to_s3(audio_file, audio_s3_path)
+            audio_s3_path = f'Project_{config["project_id"]}/Class_{config["class_id"]}/{DATE_DIR}/Pi_{pi_id}/Trial_{TRIAL_NO}/audio-files/{os.path.basename(audio_file)}'
+            doa_s3_path = f'Project_{config["project_id"]}/Class_{config["class_id"]}/{DATE_DIR}/Pi_{pi_id}/Trial_{TRIAL_NO}/doa-files/{os.path.basename(doa_file)}'
+            idjson_s3_path = f'Project_{config["project_id"]}/Class_{config["class_id"]}/{DATE_DIR}/Pi_{pi_id}/Trial_{TRIAL_NO}/{id_file_name}'
 
-            # # Upload doa file to S3
+            
+            upload_to_s3(dir_name + '/assign_speaker/ID.json', idjson_s3_path)
+            upload_to_s3(audio_file, audio_s3_path)
             upload_to_s3(doa_file, doa_s3_path)
 
             close_audio_stream(stream, p)

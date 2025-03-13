@@ -10,6 +10,7 @@ import sys
 import argparse
 import boto3
 from datetime import datetime
+import re
 
 RESPEAKER_RATE = 16000
 RESPEAKER_CHANNELS = 1
@@ -20,7 +21,7 @@ RECORD_SECONDS = 15
 CHUNKSIZE = 15
 
 def read_cfg(file_path):
-    config = {}
+    dic = {}
     
     with open(file_path, 'r') as file:
         for line in file:
@@ -29,17 +30,17 @@ def read_cfg(file_path):
                 continue            
             if '=' in line:
                 key, value = line.split('=', 1)
-                config[key.strip()] = value.strip().strip("'\"") 
-    return config
+                dic[key.strip()] = value.strip().strip("'\"") 
+    return dic
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 HARDWARE_DIR = os.path.dirname(SCRIPT_DIR)
 
 cfg_path = os.path.join(HARDWARE_DIR, "application.cfg")
-config = read_cfg(cfg_path)
-AWS_ACCESS_KEY_ID = config.get('AWS_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = config.get('AWS_SECRET_ACCESS_KEY')
-AWS_REGION = config.get('AWS_REGION')
+aws_key = read_cfg(cfg_path)
+AWS_ACCESS_KEY_ID = aws_key.get('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = aws_key.get('AWS_SECRET_ACCESS_KEY')
+AWS_REGION = aws_key.get('AWS_REGION')
 S3_BUCKET_NAME = 'respeaker-recordings'
 
 # Create a queue to hold file paths
@@ -118,6 +119,22 @@ def add_doa(doa_file, transcription_file):
             if audio_time - doa_time < 1 and audio_time - doa_time >= 0:
                 seg.update({'DOA': dic['doa']})
                 seg.update({'speaker': dic['speaker']})
+                seg.update({'utc_time': dic['timestamp']})
+    
+    # Fill missing DOA and utc time with previous value (usually happends in the last element)
+    last_speaker = None
+    last_utc_time = None
+
+    for entry in transcription['transcription']:
+        if "speaker" in entry:
+            last_speaker = entry["speaker"]  
+        else:
+            entry["speaker"] = last_speaker  
+        if "utc_time" in entry:
+            last_utc_time = entry["utc_time"] 
+        else:
+            entry["utc_time"] = last_utc_time
+
 
     with open(transcription_file, 'w') as j:
         json.dump(transcription, j)
@@ -157,13 +174,23 @@ def word_to_num(word):
     }
     return mapping.get(word.lower(), 0)
 
-
 def main():
     os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-    parser = argparse.ArgumentParser(description="directory")
+    parser = argparse.ArgumentParser(description="Arguments for transcription")
     parser.add_argument("-d", "--directory", required=True, help="directory that will contain the dataset")
+    # parser.add_argument("-c", "--config", required=True, help="config file that includes project IDs")
     args = parser.parse_args()
     dir_name = args.directory
+    # config_file = args.config
+
+    # with open(config_file) as c:
+    #     config = json.load(c)
+    # PROJECT_NO = config['project_id']
+    # CLASS_NO = config['class_id']
+    # PI_ID = config['pi_id']
+    PROJECT_NO = 1
+    CLASS_NO = 1
+    PI_ID = 2
 
     dir_path = dir_name+'/recorded_data/'
 
@@ -218,8 +245,9 @@ def main():
                 print("New flask has been called at", iteration)
 
                 date_folder = datetime.now().strftime('%Y-%m-%d')
-                trial = str(dir_name)[-1]   
-                transcription_s3_path = f'trials/{date_folder}/{trial}/transcription-files/{id_str}/{transcription_name}'
+                match = re.search(r'_(\d+)$', dir_name)
+                TRIAL_NO = match.group(1) if match else None
+                transcription_s3_path = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/transcription-files/{transcription_name}'   
 
                 upload_to_s3(transcription_file, transcription_s3_path)
 
