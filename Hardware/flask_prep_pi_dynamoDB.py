@@ -7,6 +7,7 @@ import spacy
 from nltk.stem import PorterStemmer
 from datetime import datetime, timedelta
 from transformers import pipeline
+import torch
 import boto3
 import os
 import time
@@ -14,6 +15,7 @@ import botocore.exceptions
 from boto3.dynamodb.conditions import Attr
 import sys
 import argparse
+from collections import defaultdict
 
 
 application = Flask(__name__)
@@ -25,7 +27,18 @@ AWS_ACCESS_KEY_ID = application.config['AWS_ACCESS_KEY_ID']
 AWS_SECRET_ACCESS_KEY = application.config['AWS_SECRET_ACCESS_KEY']
 AWS_REGION = application.config['AWS_REGION']
 
-CHUNKSIZE = 15 # sec
+device = 0 if torch.cuda.is_available() else -1
+topic_detection_classifier = pipeline(
+    'zero-shot-classification',
+    model='Recognai/zeroshot_selectra_small',
+    device=device
+)
+emotion_detection_classifier = pipeline(
+    'text-classification',
+    model='j-hartmann/emotion-english-distilroberta-base',
+    top_k=None,
+    device=device
+)
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 parser = argparse.ArgumentParser(description="directory")
@@ -36,9 +49,10 @@ dir_name = args.directory
 PROJECT_NO = 1
 CLASS_NO = 1
 PI_ID = 1
-# date_folder = datetime.now().strftime('%Y-%m-%d')
-date_folder = '2025-02-20'
-TRIAL_NO = 1
+date_folder = datetime.now().strftime('%Y-%m-%d')
+# date_folder = '2025-02-20'
+TRIAL_NO = 0
+CHUNKSIZE = 15 # sec
 
 dynamodb = boto3.resource(
     'dynamodb',
@@ -55,6 +69,7 @@ s3 = boto3.client(
 )
 
 table = dynamodb.Table('respeaker-analysis')
+transcript_table = dynamodb.Table('respeaker-transcripts')
 S3_BUCKET_NAME = 'respeaker-recordings'
 
 # Initialize NLTK stemmer
@@ -64,7 +79,7 @@ stemmer = PorterStemmer()
 nlp = spacy.load("en_core_web_sm")
 
 # Load LLM
-classifier = pipeline(task="text-classification", model="SamLowe/roberta-base-go_emotions", top_k=None)
+# classifier = pipeline(task="text-classification", model="SamLowe/roberta-base-go_emotions", top_k=None)
 
 
 def word_to_num(word):
@@ -167,46 +182,36 @@ def check_speakers_not_spoken():
 
     try:
         # # Fetch the current item based on group_id
-        # response = table.get_item(Key={'group_id': id_str})
-        # item = response.get('Item')
+        response = table.get_item(Key={'group_id': id_str})
+        item = response.get('Item')
 
-        # if item:
-        #     # Ensure current date's map exists directly within the item
-        #     if cur_date_formatted not in item:
-        #         item[cur_date_formatted] = {}TRIAL_NO
-
-        #     # Add the new result to the 'check_speakers_not_spoken' section within the current date
-        #     cur_date_data = item[cur_date_formatted]
-        #     cur_date_data.setdefault('check_speakers_not_spoken', {})
-        #     cur_date_data['check_speakers_not_spoken'][f"Results_{cur_time_formatted}"] = speakers_not_spoken_result
-
-        #     # Update the item in the table
-        #     table.put_item(Item=item)
-
-        # # Note: This else block can probably be removed since this route is called every 60 seconds, and the words_concat route is called
-        # # every 15 seconds, so the item will ALWAYS be there
-        # else:
-        #     # If the item does not exist, create a new one with the date directly under group_id
-        #     new_item = {
-        #         'group_id': id_str,
-        #         cur_date_formatted: {
-        #             'check_speakers_not_spoken': {
-        #                 f"Results_{cur_time_formatted}": speakers_not_spoken_result
-        #             }
-        #         }
-        #     }
-        #     table.put_item(Item=new_item)
-
+        if item:
+            try:
+                if item[f'Trial_No_{TRIAL_NO}']:
+                    item[f'Trial_No_{TRIAL_NO}'][f'{start_time}-{end_time}'] = {
+                        'Check_Speakers_Not_Spoken': speakers_not_spoken_result,
+                        'Word_Count': {},
+                        'Off_Topic': {},
+                        'Emotion': {},
+                    }
+                table.put_item(Item=item)
+            except Exception as e:
+                return jsonify({
+                    'Message': 'An error occurred',
+                    'Error': e
+                })
+        else:
             new_item = {
                 'Date': date_folder,
                 'Pi_id': str(PI_ID),
-                'Trial_No': TRIAL_NO,
-                f'{start_time}-{end_time}': {
-                    'Check_Speakers_Not_Spoken': speakers_not_spoken_result,
-                    'Word_Count': {},
-                    'Off_Topic': {},
-                    'Emotion': {},
-                }
+                f'Trial_No_{TRIAL_NO}': {
+                    f'{start_time}-{end_time}': {
+                        'Check_Speakers_Not_Spoken': speakers_not_spoken_result,
+                        'Word_Count': {},
+                        'Off_Topic': {},
+                        'Emotion': {},
+                    }
+                },
             }
             table.put_item(Item=new_item)
 
@@ -228,7 +233,7 @@ def check_speakers_within_timeframe(start_time, end_time, preset_speakers):
     speakers_not_spoken = set(preset_speakers)
 
     # Define the range of numbers (10 to 240) for the filenames
-    for number in range(start_time, end_time + 1, CHUNKSIZE):
+    for number in range(start_time + CHUNKSIZE, end_time + 1, CHUNKSIZE):
         prefix = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/transcription-files/'
         mid_folder = get_dynamic_folder_name(prefix)
         file_key = f'{prefix}{mid_folder}/chunk_{number}.wav.json'
@@ -272,7 +277,7 @@ def analyze_transcripts():
     all_table_data = []
 
     # Define the range of numbers (105 to 240) for the filenames
-    for number in range(request_start_time, request_end_time, CHUNKSIZE):
+    for number in range(request_start_time + CHUNKSIZE, request_end_time, CHUNKSIZE):
         #Provide path to transcript chunks here
         prefix = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/transcription-files/'
         mid_folder = get_dynamic_folder_name(prefix)
@@ -402,8 +407,6 @@ def analyze_transcripts():
     for index, row in df.iterrows():
         words = row['Sentence'].split()
         for word in words:
-            word = get_lemma(word)
-            word = word.lower()
             if word in root_word_dict and first_occurrence[word] is None:
                 first_occurrence[word] = row['Person']
 
@@ -439,11 +442,11 @@ def analyze_transcripts():
     try:
         response = table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})
         item = response.get('Item')
-        print("ITEM: ", item)
+        # print("ITEM: ", item)
 
         if item:
-            item[f'{request_start_time}-{request_end_time}']['Word_Count'] = json.dumps(word_counts_result)
-            item[f'{request_start_time}-{request_end_time}']['First_Words_Spoken'] = json.dumps(first_words_spoken_result)
+            item[f'Trial_No_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['Word_Count'] = json.dumps(word_counts_result)
+            item[f'Trial_No_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['First_Words_Spoken'] = json.dumps(first_words_spoken_result)
             table.put_item(Item=item)
         # if item:
         #     # Ensure current date exists directly within the item
@@ -482,141 +485,126 @@ def analyze_transcripts():
 
     return jsonify(result)
 
-# TODO
-@application.route('/word_concatenations', methods=['POST'])
-def word_concatenations():
-    parser = argparse.ArgumentParser(description="directory")
-    parser.add_argument("-d", "--directory", required=True, help="directory that will contain the dataset")
-    args = parser.parse_args()
-    DIR_NAME = args.directory
 
-    # Opening the appropriate JSON for the chunk of speech just recorded
-    filename = DIR_NAME + f"/recorded_data/chunk_{request.json['iteration']}.wav.json"
-    if os.path.exists(filename):
-        # Load the JSON data from the file
-        with open(filename, 'r') as file:
-            data = json.load(file)
+@application.route('/topic_detection', methods=['POST'])
+def topic_detection():
+    data = request.json
+    request_start_time = int(data['start_time'])
+    request_end_time = int(data['end_time'])
+    speaker_topic = dict()
+    bag_of_words = [
+        "Community garden",
+        "Food desert",
+        "Food swamp",
+        "food system",
+        "insecurity",
+        "health",
+        "obese",
+        "garden",
+        "access",
+        "urban",
+        "poverty",
+        "rural",
+        "low income",
+        "middle income",
+        "prices",
+        "minority",
+        "Sovereignty",
+        "Local",
+        "affordable",
+        "Vegetable",
+        "Meat",
+        "hung",
+        "Nutrition",
+        "Grow",
+        "Gather",
+        "Grocery",
+        "Agriculture",
+        "Climate change",
+        "Usda",
+        "Food",
+        "Policy",
+        "plant",
+        "environment",
+        "greenhouse gas",
+        "organic"
+    ]
 
-    # Creating a dictionary to store speakers' words
-    speakers_words = {}
-
-    # Extracting words spoken by each speaker
-    for word_info in data['segments'][0]['words']:
-        speaker = word_info['speaker']
-        word = word_info['text']
-        if speaker not in speakers_words:
-            speakers_words[speaker] = []
-        speakers_words[speaker].append(word)
-
-    # Converting lists of words into space-separated strings
-    for speaker in speakers_words:
-        speakers_words[speaker] = ' '.join(speakers_words[speaker])
-
-    # DynamoDB update logic (needed for saving to DB)
-    id_str = get_id_str()
-    cur_date_formatted = datetime.now().strftime('%Y-%m-%d')
-    cur_time_formatted = datetime.now().strftime('%H:%M:%S')
-
-    # Prepare the word concatenations
-    # Under "word_concatenations" in the DB are maps for each speaker, which then map to individual "results" containing the string of concatenated words
-    word_concats = {}
-    for speaker, words in speakers_words.items():
-        word_concats[speaker] = {
-            f"Results_{request.json['iteration']}": words
-        }
-
-    # The try-catch block saves the word concatenations to the DB
+    def topic_detection(seq):
+        CI = 2.5
+        res = topic_detection_classifier(seq, bag_of_words, multi_label=True)
+        score = sum(res['scores'][:5])
+        if score > CI:
+            return 'On-Topic'
+        else:
+            return 'Off-Topic'
+    
     try:
-        # Fetch the current item based on group_id
-        response = table.get_item(Key={'group_id': id_str})
+        response = transcript_table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})
         item = response.get('Item')
 
-        if item:
-            # Ensure current date's map exists directly within the item
-            if cur_date_formatted not in item:
-                item[cur_date_formatted] = {}
+        df = pd.DataFrame(item['Transcript'])
+        df['End_time'] = df['Timestamp'].str.split('-').str[1].astype(int)
+        df_filtered = df[df['End_time'] <= request_end_time]
+        speaker_texts = df_filtered.groupby('Speaker')['Text'].agg(" ".join).to_dict()
+        
+        for speaker, spoken in speaker_texts.items():
+            if speaker != 'Unknown':
+                speaker_topic[speaker] = topic_detection(spoken)
+        
+        try:
+            response = table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})
+            analysis_item = response.get('Item')
 
-            # Add the new result to the 'word_concatenations' section within the current date
-            cur_date_data = item[cur_date_formatted]
-            cur_date_data.setdefault('word_concatenations', {})
-            
-            # Merge new words with existing words for each speaker
-            # (we can't just set the 'word_concatenations' attribute equal to the word_concats variable otherwise we'll overwrite previous entries)
-            for speaker, new_results in word_concats.items():
-                if speaker not in cur_date_data['word_concatenations']:
-                    cur_date_data['word_concatenations'][speaker] = new_results
-                else:
-                    for key, new_words in new_results.items():
-                        cur_date_data['word_concatenations'][speaker][key] = new_words
-
-            # Update the item in the table
-            table.put_item(Item=item)
-        else:
-            # If the item does not exist, create a new one with the date directly under group_id
-            new_item = {
-                'group_id': id_str,
-                cur_date_formatted: {
-                    'word_concatenations': word_concats
-                }
-            }
-            
-            table.put_item(Item=new_item)
-
+            analysis_item[f'Trial_No_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['Off_Topic'] = json.dumps(speaker_topic)
+            table.put_item(Item=analysis_item)
+        except botocore.exceptions.ClientError as error:
+            print(f"An error occurred: {error}")
+        
     except botocore.exceptions.ClientError as error:
-        # Handle the exception
         print(f"An error occurred: {error}")
-    
-    result = {
-        'message': 'Word concatenations completed and stored in DynamoDB',
-        'word_concatenations': word_concatenations
-    }
-
-    return jsonify(result)
+            
+    return jsonify({
+        'message': 'Emotion analysis completed and stored in DynamoDB',
+    })
 
 
 @application.route('/emotion_check', methods=['POST'])
 def emotion_check():
-    id_str = get_id_str()
-    response = table.get_item(Key={'group_id': id_str})
-    item = response.get('Item')
+    data = request.json
+    request_start_time = int(data['start_time'])
+    request_end_time = int(data['end_time'])
+    speaker_emotion = dict()
 
-    # Access the nested structure
-    cur_date_formatted = datetime.now().strftime('%Y-%m-%d')
-    word_concats = item.get(cur_date_formatted, {}).get('word_concatenations', {})
-    emotion_results = {}
+    try:
+        response = transcript_table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})
+        item = response.get('Item')
 
-    for speaker, results in word_concats.items():
-        last_four = list(results.items())[-4:]
-        amount_of_recent = 0    # there needs to be 2 recent chunks to count it
-        all_words = ''
-        for iteration_num, words in last_four:
-            recently_transcribed_iteration = request.json['iteration'] / 15
-            which_iteration = iteration_num / 15
-            if which_iteration <= recently_transcribed_iteration and which_iteration > recently_transcribed_iteration - 4:
-                all_words += words
-                amount_of_recent += 1
-    
-        # only counts if the last 2 out of 4 chunks include speech from this speaker
-        if amount_of_recent >= 2:
-            emotion_results[speaker] = {
-            f"Results_{request.json['iteration']}": all_words
-        }
+        df = pd.DataFrame(item['Transcript'])
+        df['End_time'] = df['Timestamp'].str.split('-').str[1].astype(int)
+        df_filtered = df[df['End_time'] <= request_end_time]
+        speaker_texts = df_filtered.groupby('Speaker')['Text'].agg(" ".join).to_dict()
+        
+        for speaker, spoken in speaker_texts.items():
+            if speaker != 'Unknown':
+                op = emotion_detection_classifier(spoken)
+                op[0].sort(key=lambda x: x['score'], reverse=True)
+                speaker_emotion[speaker] = op[0][0]['label']
+        
+        try:
+            response = table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})
+            analysis_item = response.get('Item')
 
-    # Finds the attribute for the current date and adds "emotion_results" if not there
-    cur_date_data = item[cur_date_formatted]
-    cur_date_data.setdefault('emotion_results', {})
-
-    # Adds the emotion data just collected to the speaker name attributes (or if they aren't there, adds a new speaker name entry)
-    for speaker, new_results in emotion_results.items():
-        if speaker not in cur_date_data['emotion_results']:
-            cur_date_data['emotion_results'][speaker] = new_results
-        else:
-            for key, emotion_data in new_results.items():
-                cur_date_data['emotion_results'][speaker][key] = emotion_data
+            analysis_item[f'Trial_No_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['Emotion'] = json.dumps(speaker_emotion)
+            table.put_item(Item=analysis_item)
+        except botocore.exceptions.ClientError as error:
+            print(f"An error occurred: {error}")
+        
+    except botocore.exceptions.ClientError as error:
+        print(f"An error occurred: {error}")
             
     return jsonify({
         'message': 'Emotion analysis completed and stored in DynamoDB',
-        'emotion_results': emotion_results
     })
 
 
@@ -662,6 +650,92 @@ def check_server_working_post():
         }
         return jsonify(error_message), 500  # HTTP 500 Internal Server Error
 
+
+@application.route('/append_transcript', methods=['POST'])
+def append_transcript():
+    data = get_id_json_from_s3()
+
+    # Initialize an empty set for preset_speakers
+    preset_speakers = set()
+
+    # Iterate through the data and add the first value of the ID array for each person to the set
+    for person in data.values():
+        if person['ID']:  # Check if the ID list is not empty
+            preset_speakers.add(person['ID'])
+
+    data = request.json
+    request_start_time = int(data['start_time'])  # Example format: '20'
+    request_end_time = int(data['end_time']) #60
+    # Initialize an empty list to store the table data
+    speaker_words = defaultdict(str)
+
+    # Define the range of numbers (105 to 240) for the filenames
+    for number in range(request_start_time + CHUNKSIZE, request_end_time + 1, CHUNKSIZE):
+        #Provide path to transcript chunks here
+        prefix = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/transcription-files/'
+        mid_folder = get_dynamic_folder_name(prefix)
+        file_key = f'{prefix}{mid_folder}/chunk_{number}.wav.json'
+        data = get_transcription_from_s3(file_key)
+
+            # Extract the speaker names from the JSON data
+        speaker_names = set(word['speaker'] for segment in data['transcription'] for word in segment.get('words', []) 
+                            if 'speaker' in word)
+
+        # Iterate through segments and extract relevant information
+        for segment in data['transcription']:
+            # Extract words spoken by each person
+            transcript_texts = segment['text']
+            # Initialize the speaker name for this segment
+            segment_speaker = segment['speaker'] if segment['speaker'][0] != 't' else 'Unknown'
+            speaker_words[segment_speaker] += transcript_texts
+
+    try:
+        response = transcript_table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})
+        item = response.get('Item')
+
+        timestamp = [f'{request_start_time}-{request_end_time}'] * len(speaker_words)
+        speakers, texts = [], []
+        for speaker, text in speaker_words.items():
+            speakers.append(speaker)
+            texts.append(text)
+
+        if item:
+            item_timestamp = item[f'Transcript_{TRIAL_NO}']['Timestamp']
+            item_speaker = item[f'Transcript_{TRIAL_NO}']['Speaker']
+            item_text = item[f'Transcript_{TRIAL_NO}']['Text']
+
+            for ts, s, t in zip(timestamp, speakers, texts):     
+                item_timestamp.append(ts)
+                item_speaker.append(s)
+                item_text.append(t)
+            
+            item[f'Transcript_{TRIAL_NO}']['Timestamp'] = item_timestamp
+            item[f'Transcript_{TRIAL_NO}']['Speaker'] =item_speaker
+            item[f'Transcript_{TRIAL_NO}']['Text'] = item_text
+
+            transcript_table.put_item(Item=item)
+
+        else:
+            new_item = {
+                'Date': date_folder,
+                'Pi_id': str(PI_ID),
+                'Trial_No': TRIAL_NO,
+                f'Transcript_{TRIAL_NO}': {
+                    'Timestamp': timestamp,
+                    'Speaker': speakers,
+                    'Text': texts
+                },
+            }
+            transcript_table.put_item(Item=new_item)
+    except botocore.exceptions.ClientError as error:
+        print(f"An error occurred: {error}")
+                
+
+    result = {
+        'Message': 'Appending Transcription completed and stored in DynamoDB.',
+    }
+
+    return jsonify(result)
 
 if __name__ == '__main__':
     application.run(debug=True, port=8000)

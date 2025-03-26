@@ -179,8 +179,9 @@ def main():
 
     url = "http://127.0.0.1:8000/check_speakers_not_spoken"
     url2 = "http://127.0.0.1:8000/analysis"
-    url3 = "http://127.0.0.1:8000/word_concatenations"
-    url4 = "http://127.0.0.1:8000/emotion_check"
+    url3 = "http://127.0.0.1:8000/emotion_check"
+    url5 = "http://127.0.0.1:8000/topic_detection"
+    url4 = "http://127.0.0.1:8000/append_transcript"
     print(f"Watching directory: {watched_directory}")
     observer.start()
     os.environ['LAST_ITERATION'] = ""
@@ -230,15 +231,18 @@ def main():
                     time.sleep(5)
                     response2 = requests.post(url2, json=data)
                     print("Response from url2", response2)
+                    time.sleep(5)
+                    response3 = requests.post(url3, json=data)
+                    print("Response from url3", response3)
+                    time.sleep(5)
+                    response5 = requests.post(url5, json=data)
+                    print("Response from url5", response5)
 
-
-                data3 = {"current_iteration": iteration}
-                response3 = requests.post(url3, json=data3)
-
-                # Call url4 after EVERY chunk once there are 4 existing chunks
-                if iteration >= (RECORD_SECONDS * 4):
-                    data4 = {"current_iteration": iteration}
-                    response4 = requests.post(url4, json=data4)
+                if iteration >= 60 and iteration % 60 == 0:
+                    data = {"start_time": iteration - 60, "end_time": iteration}
+                    response = requests.post(url4, json=data)
+                    
+    
         
     except KeyboardInterrupt:
         observer.stop()
