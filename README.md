@@ -72,8 +72,10 @@ For Raspberri Pi, we use [whisper.cpp](https://github.com/ggerganov/whisper.cpp.
 cd Hardware
 git clone https://github.com/ggerganov/whisper.cpp.git
 ```
-Follow the instruction to install whisper.cpp
-
+Follow the instruction to install whisper.cpp. Specifically, you will need to download the whisper models like
+```
+make -j tiny.en
+```
 
 If you want to use insanely fast whisper (THIS HAS NOT BEEN TESTED):
 
