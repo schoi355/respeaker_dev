@@ -129,14 +129,9 @@ $ python get_index.py
 
 This gives you what index the device is using. Put the number of Respeaker device to `RESPEAKER_INDEX` in `record_DOA_ID_chunks_pi.py`
 
-First, edit the folder name in `setup.sh`. Then, run `setup.sh` to activate the virtual environment and create a data folder.
+Run `run_scripts.sh` to activate the virtual environment and run `record_DOA_ID_chunks_pi.py`, `transcribe_chunk_pi.py`, and `flask_prep_pi_dynamoDB.py`.
 ```
-source setup.sh
-```
-
-Next, put the same folder name in `record.sh`, `transcribe.sh`, and `flask.sh`. Then, run `run_scripts.sh` to open three terminals and run `record_DOA_ID_chunks_pi.py`, `transcribe_chunk_pi.py`, and `flask_prep_pi_dynamoDB.py`.
-```
-source run_scripts.sh
+./run_scripts.sh
 ```
 
 The next step is to calibrate the DOA angles for each speaker. In one of the terminals, you will be prompted with 'add ID' or 'stop'. By typing add ID, the speaker will speak for 8 seconds to determine the angle from the voice. When all speakers are calibrated, type `stop`, then it starts recording.
