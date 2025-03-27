@@ -67,11 +67,11 @@ Install [whisper-timestamped](https://github.com/linto-ai/whisper-timestamped)
 pip install git+https://github.com/linto-ai/whisper-timestamped
 ```
 
-To setup insanely fast whisper:
+If you want to use insanely fast whisper (THIS HAS NOT BEEN TESTED):
 
 Install insanely-fast-whisper using pipx:
-
-```pipx install insanely-fast-whisper --force
+```
+pipx install insanely-fast-whisper --force
 ```
 
 Run transcribe_chunk_fast.py 
