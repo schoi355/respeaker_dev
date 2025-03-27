@@ -206,9 +206,9 @@ The output should display the address of the I2C backpack (usually 0x27 or 0x3F)
 venv/bin/pip install adafruit-circuitpython-ssd1306
 sudo apt-get install python3-pil
 ```
-Note that Adafruit Blinka uses libgpiod for Pi 5 rather than RPi.GPIO on the Pi 4. Intall this
+Note that Adafruit Blinka uses libgpiod for Pi 5 rather than RPi.GPIO on the Pi 4. Intall these
 ```
-venv/bin/pip install gpiod
+venv/bin/pip install gpiod pillow
 ```
 
 Pi 5 usually uses `gpiochip4` for the GPIO. You can see the list of pins by running
