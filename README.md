@@ -88,7 +88,7 @@ Run transcribe_chunk_fast.py
 
 ### Set up Flask
 ```
-pip install flask nltk spacy==3.7.4
+pip install flask nltk transformer spacy==3.7.4
 python -m spacy download en_core_web_sm
 ```
 
