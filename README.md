@@ -215,6 +215,10 @@ Pi 5 usually uses `gpiochip4` for the GPIO. You can see the list of pins by runn
 ```
 sudo gpioinfo gpiochip4
 ```
+Install lgpio:
+```
+pip install lgpio==0.2.2.0
+```
 
 ----------------------------------------------------------------------------------------
 
