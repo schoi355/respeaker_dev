@@ -39,7 +39,8 @@ pip install pyaudio pyusb
 
 Raspberry Pi might need portaudio and usb.
 ```
-sudo apt-get install python3-usb python3-pyaudio
+sudo apt install python3-usb python3-pyaudio
+sudo apt install portaudio19-dev python3-dev
 pip install pyaudio pyusb
 ```
 
