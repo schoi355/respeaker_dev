@@ -44,10 +44,16 @@ sudo apt install portaudio19-dev python3-dev
 pip install pyaudio pyusb
 ```
 
-You might need to create a udev rule to ensure that the USB device is accessible by non-root users. Create a new file, for example, /etc/udev/rules.d/99-usb-permissions.rules, and add the following line:
+You might need to create a udev rule to ensure that the USB device is accessible by non-root users. Create a new file, Open the rule using below:
 ```
-SUBSYSTEM=="usb", MODE="0666"
+sudo nano /etc/udev/rules.d/99-respeaker.rules
 ```
+
+and add the following line:
+```
+SUBSYSTEM=="usb", ATTR{idVendor}=="2886", ATTR{idProduct}=="0018", MODE="0666"
+```
+You can find idVendor and idProduct using `lsusb` command.
 
 Install sounddevice for Pi
 ```
