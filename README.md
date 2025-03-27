@@ -220,6 +220,8 @@ Install lgpio:
 pip install lgpio==0.2.2.0
 ```
 
+To test gpio pins, run `gpiomon gpiochip4 PIN_NUMBER` and press the button. For example, PIN_NUMBER is 4 for the right-top button.
+
 ----------------------------------------------------------------------------------------
 
 ### Run multiple bash scripts on boot in Raspberry Pi
