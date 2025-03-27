@@ -46,12 +46,12 @@ parser.add_argument("-d", "--directory", required=True, help="directory that wil
 args = parser.parse_args()
 dir_name = args.directory
 # TODO: Set using cmd args
-PROJECT_NO = 1
-CLASS_NO = 1
-PI_ID = 1
+PROJECT_NO = None
+CLASS_NO = None
+PI_ID = None
+TRIAL_NO = None
 date_folder = datetime.now().strftime('%Y-%m-%d')
 # date_folder = '2025-02-20'
-TRIAL_NO = 0
 CHUNKSIZE = 15 # sec
 
 dynamodb = boto3.resource(
@@ -182,18 +182,19 @@ def check_speakers_not_spoken():
 
     try:
         # # Fetch the current item based on group_id
-        response = table.get_item(Key={'group_id': id_str})
+        response = table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})
         item = response.get('Item')
 
         if item:
             try:
-                if item[f'Trial_No_{TRIAL_NO}']:
-                    item[f'Trial_No_{TRIAL_NO}'][f'{start_time}-{end_time}'] = {
-                        'Check_Speakers_Not_Spoken': speakers_not_spoken_result,
-                        'Word_Count': {},
-                        'Off_Topic': {},
-                        'Emotion': {},
-                    }
+                if f'Trial_{TRIAL_NO}' not in item:
+                    item[f'Trial_{TRIAL_NO}'] = defaultdict(dict)
+                item[f'Trial_{TRIAL_NO}'][f'{start_time}-{end_time}'] = {
+                    'Check_Speakers_Not_Spoken': speakers_not_spoken_result,
+                    'Word_Count': {},
+                    'Off_Topic': {},
+                    'Emotion': {},
+                }
                 table.put_item(Item=item)
             except Exception as e:
                 return jsonify({
@@ -204,7 +205,7 @@ def check_speakers_not_spoken():
             new_item = {
                 'Date': date_folder,
                 'Pi_id': str(PI_ID),
-                f'Trial_No_{TRIAL_NO}': {
+                f'Trial_{TRIAL_NO}': {
                     f'{start_time}-{end_time}': {
                         'Check_Speakers_Not_Spoken': speakers_not_spoken_result,
                         'Word_Count': {},
@@ -240,6 +241,8 @@ def check_speakers_within_timeframe(start_time, end_time, preset_speakers):
         data = get_transcription_from_s3(file_key)
         if data:
             for segment in data['transcription']:
+                if 'speaker' not in segment:
+                    continue    
                 speaker_name = segment['speaker']
                 speakers_not_spoken.discard(speaker_name)
 
@@ -300,7 +303,7 @@ def analyze_transcripts():
             segment_speaker = None
 
             for word in words:
-                if segment['speaker']:
+                if 'speaker' in segment:
                     segment_speaker = segment['speaker']
                 if segment_speaker:
                     speaker_name = segment_speaker
@@ -435,42 +438,15 @@ def analyze_transcripts():
     word_counts_result = {person: int(group['Word Count'].sum().item()) for person, group in df.groupby('Person')}
     first_words_spoken_result = first_occurrence
 
-    id_str = get_id_str()
-    cur_date_formatted = datetime.now().strftime('%Y-%m-%d')
-    cur_time_formatted = datetime.now().strftime('%H:%M:%S')
-
     try:
         response = table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})
         item = response.get('Item')
         # print("ITEM: ", item)
 
         if item:
-            item[f'Trial_No_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['Word_Count'] = json.dumps(word_counts_result)
-            item[f'Trial_No_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['First_Words_Spoken'] = json.dumps(first_words_spoken_result)
+            item[f'Trial_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['Word_Count'] = json.dumps(word_counts_result)
+            item[f'Trial_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['First_Words_Spoken'] = json.dumps(first_words_spoken_result)
             table.put_item(Item=item)
-        # if item:
-        #     # Ensure current date exists directly within the item
-        #     cur_date_data = item.setdefault(cur_date_formatted, {})
-        # else:
-        #     # If the item does not exist, create a new structure for it
-        #     cur_date_data = {}
-        #     item = {
-        #         'group_id': "Apple",
-        #         cur_date_formatted: cur_date_data
-        #     }
-
-        # # Update word counts and first words spoken in separate layers within the current date
-        # cur_date_data.setdefault('word_counts', {})
-        # cur_date_data['word_counts'][f"Results_{cur_time_formatted}"] = json.dumps(word_counts_result)
-
-        # cur_date_data.setdefault('first_words_spoken', {})
-        # if first_words_spoken_result:  # Check if the result is not empty before updating
-        #     cur_date_data['first_words_spoken'][f"Results_{cur_time_formatted}"] = json.dumps(first_words_spoken_result)
-        # else:
-        #     cur_date_data['first_words_spoken'][f"Results_{cur_time_formatted}"] = "{}"
-
-        # # Update or create the item in the table
-        # table.put_item(Item=item)
 
     except botocore.exceptions.ClientError as error:
         print(f"An error occurred: {error}")
@@ -543,7 +519,7 @@ def topic_detection():
         response = transcript_table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})
         item = response.get('Item')
 
-        df = pd.DataFrame(item['Transcript'])
+        df = pd.DataFrame(item[f'Transcript_{TRIAL_NO}'])
         df['End_time'] = df['Timestamp'].str.split('-').str[1].astype(int)
         df_filtered = df[df['End_time'] <= request_end_time]
         speaker_texts = df_filtered.groupby('Speaker')['Text'].agg(" ".join).to_dict()
@@ -556,7 +532,7 @@ def topic_detection():
             response = table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})
             analysis_item = response.get('Item')
 
-            analysis_item[f'Trial_No_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['Off_Topic'] = json.dumps(speaker_topic)
+            analysis_item[f'Trial_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['Off_Topic'] = json.dumps(speaker_topic)
             table.put_item(Item=analysis_item)
         except botocore.exceptions.ClientError as error:
             print(f"An error occurred: {error}")
@@ -565,7 +541,7 @@ def topic_detection():
         print(f"An error occurred: {error}")
             
     return jsonify({
-        'message': 'Emotion analysis completed and stored in DynamoDB',
+        'message': 'Topic Detection completed and stored in DynamoDB',
     })
 
 
@@ -580,7 +556,7 @@ def emotion_check():
         response = transcript_table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})
         item = response.get('Item')
 
-        df = pd.DataFrame(item['Transcript'])
+        df = pd.DataFrame(item[f'Transcript_{TRIAL_NO}'])
         df['End_time'] = df['Timestamp'].str.split('-').str[1].astype(int)
         df_filtered = df[df['End_time'] <= request_end_time]
         speaker_texts = df_filtered.groupby('Speaker')['Text'].agg(" ".join).to_dict()
@@ -595,7 +571,7 @@ def emotion_check():
             response = table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})
             analysis_item = response.get('Item')
 
-            analysis_item[f'Trial_No_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['Emotion'] = json.dumps(speaker_emotion)
+            analysis_item[f'Trial_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['Emotion'] = json.dumps(speaker_emotion)
             table.put_item(Item=analysis_item)
         except botocore.exceptions.ClientError as error:
             print(f"An error occurred: {error}")
@@ -653,6 +629,8 @@ def check_server_working_post():
 
 @application.route('/append_transcript', methods=['POST'])
 def append_transcript():
+    print("Starting Appending")
+    print(PROJECT_NO, CLASS_NO, TRIAL_NO, PI_ID)
     data = get_id_json_from_s3()
 
     # Initialize an empty set for preset_speakers
@@ -677,15 +655,18 @@ def append_transcript():
         file_key = f'{prefix}{mid_folder}/chunk_{number}.wav.json'
         data = get_transcription_from_s3(file_key)
 
-            # Extract the speaker names from the JSON data
-        speaker_names = set(word['speaker'] for segment in data['transcription'] for word in segment.get('words', []) 
-                            if 'speaker' in word)
+        # Extract the speaker names from the JSON data
+        # speaker_names = set(word['speaker'] for segment in data['transcription'] for word in segment.get('words', []) 
+        #                    if 'speaker' in word)
 
+        
         # Iterate through segments and extract relevant information
         for segment in data['transcription']:
             # Extract words spoken by each person
             transcript_texts = segment['text']
             # Initialize the speaker name for this segment
+            if 'speaker' not in segment:
+                continue
             segment_speaker = segment['speaker'] if segment['speaker'][0] != 't' else 'Unknown'
             speaker_words[segment_speaker] += transcript_texts
 
@@ -700,18 +681,25 @@ def append_transcript():
             texts.append(text)
 
         if item:
-            item_timestamp = item[f'Transcript_{TRIAL_NO}']['Timestamp']
-            item_speaker = item[f'Transcript_{TRIAL_NO}']['Speaker']
-            item_text = item[f'Transcript_{TRIAL_NO}']['Text']
+            if f'Transcript_{TRIAL_NO}' not in item:
+                item[f'Transcript_{TRIAL_NO}'] = {
+                    'Timestamp': timestamp,
+                    'Speaker': speakers,
+                    'Text': texts,
+                }
+            else:
+                item_timestamp = item[f'Transcript_{TRIAL_NO}']['Timestamp']
+                item_speaker = item[f'Transcript_{TRIAL_NO}']['Speaker']
+                item_text = item[f'Transcript_{TRIAL_NO}']['Text']
 
-            for ts, s, t in zip(timestamp, speakers, texts):     
-                item_timestamp.append(ts)
-                item_speaker.append(s)
-                item_text.append(t)
-            
-            item[f'Transcript_{TRIAL_NO}']['Timestamp'] = item_timestamp
-            item[f'Transcript_{TRIAL_NO}']['Speaker'] =item_speaker
-            item[f'Transcript_{TRIAL_NO}']['Text'] = item_text
+                for ts, s, t in zip(timestamp, speakers, texts):     
+                    item_timestamp.append(ts)
+                    item_speaker.append(s)
+                    item_text.append(t)
+                
+                item[f'Transcript_{TRIAL_NO}']['Timestamp'] = item_timestamp
+                item[f'Transcript_{TRIAL_NO}']['Speaker'] =item_speaker
+                item[f'Transcript_{TRIAL_NO}']['Text'] = item_text
 
             transcript_table.put_item(Item=item)
 
@@ -719,7 +707,6 @@ def append_transcript():
             new_item = {
                 'Date': date_folder,
                 'Pi_id': str(PI_ID),
-                'Trial_No': TRIAL_NO,
                 f'Transcript_{TRIAL_NO}': {
                     'Timestamp': timestamp,
                     'Speaker': speakers,
@@ -730,12 +717,31 @@ def append_transcript():
     except botocore.exceptions.ClientError as error:
         print(f"An error occurred: {error}")
                 
-
+    print('Ending Appending')
     result = {
         'Message': 'Appending Transcription completed and stored in DynamoDB.',
     }
 
     return jsonify(result)
+
+
+@application.route('/initial_setup', methods=['POST'])
+def initial_setup():
+    global PROJECT_NO, CLASS_NO, TRIAL_NO, PI_ID
+    data = request.get_json()
+
+    PROJECT_NO = str(data['PROJECT_NO'] if 'PROJECT_NO' in data else 1)
+    CLASS_NO = str(data['CLASS_NO'] if 'CLASS_NO' in data else 1)
+    TRIAL_NO = str(data['TRIAL_NO'] if 'TRIAL_NO' in data else 1)
+    PI_ID = str(data['PI_ID'] if 'PI_ID' in data else 1)
+
+    return jsonify({
+        'Message': 'Global Variables Updated.',
+        'PROJECT_NO': PROJECT_NO,
+        'CLASS_NO': CLASS_NO,
+        'TRIAL_NO': TRIAL_NO,
+        'PI_ID': PI_ID,
+    })
 
 if __name__ == '__main__':
     application.run(debug=True, port=8000)
