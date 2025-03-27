@@ -67,6 +67,14 @@ Install [whisper-timestamped](https://github.com/linto-ai/whisper-timestamped)
 pip install git+https://github.com/linto-ai/whisper-timestamped
 ```
 
+For Raspberri Pi, we use [whisper.cpp](https://github.com/ggerganov/whisper.cpp.git).
+```
+cd Hardware
+git clone https://github.com/ggerganov/whisper.cpp.git
+```
+Follow the instruction to install whisper.cpp
+
+
 If you want to use insanely fast whisper (THIS HAS NOT BEEN TESTED):
 
 Install insanely-fast-whisper using pipx:
