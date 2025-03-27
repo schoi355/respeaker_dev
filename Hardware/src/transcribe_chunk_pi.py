@@ -188,9 +188,6 @@ def main():
     # PROJECT_NO = config['project_id']
     # CLASS_NO = config['class_id']
     # PI_ID = config['pi_id']
-    PROJECT_NO = 1
-    CLASS_NO = 1
-    PI_ID = 2
 
     dir_path = dir_name+'/recorded_data/'
 
@@ -208,15 +205,32 @@ def main():
     observer = Observer()
     observer.schedule(event_handler, path=watched_directory, recursive=True)
 
-    # url = "http://3.131.78.98:8080/check_speakers_not_spoken"
-    # url2 = "http://3.131.78.98:8080/analysis"
-    url = "http://127.0.0.1:8080/check_speakers_not_spoken"
-    url2 = "http://127.0.0.1:8080/analysis"
-    # url3 = "http://127.0.0.1:8080/word_concatenations"
-    # url4 = "http://127.0.0.1:8080/emotion_check"
+    setup_url = "http://127.0.0.1:8000/initial_setup"
+    csns_url = "http://127.0.0.1:8000/check_speakers_not_spoken"
+    analysis_url = "http://127.0.0.1:8000/analysis"
+    emotion_url = "http://127.0.0.1:8000/emotion_check"
+    topic_url = "http://127.0.0.1:8000/topic_detection"
+    transcript_url = "http://127.0.0.1:8000/append_transcript"
+
     print(f"Watching directory: {watched_directory}")
     observer.start()
     os.environ['LAST_ITERATION'] = ""
+
+    # ******************************************************* SET BEFORE TRIAL ***********************************
+    date_folder = datetime.now().strftime('%Y-%m-%d')
+    PROJECT_NO = 1
+    CLASS_NO = 1
+    PI_ID = 1
+    TRIAL_NO = str(dir_name)[-1]
+    # ************************************************************************************************************
+    time.sleep(10)
+    response = requests.post(setup_url, json={
+        "PROJECT_NO": PROJECT_NO,
+        "CLASS_NO": CLASS_NO,
+        "TRIAL_NO": TRIAL_NO,
+        "PI_ID": PI_ID
+    })
+    print(response.text)
 
     try:
         while True:
@@ -252,24 +266,23 @@ def main():
                 upload_to_s3(transcription_file, transcription_s3_path)
 
                 # Call url once every 60 seconds
-                if iteration % 60 == 0:
-                    data = {"start_time": iteration - 30, "end_time": iteration}
-                    response = requests.post(url, json=data)
-                    
-                #Call url2 once every 300 seconds
-                if iteration % 300:
-                    data2 = {"total_files": iteration}  # Use the last processed iteration
-                    response2 = requests.post(url2, json=data2)
+                if iteration >= 120 and iteration % 60 == 0:
+                    data = {"start_time": iteration - 120, "end_time": iteration}
+                    response = requests.post(csns_url, json=data)
+                    time.sleep(2)
+                    response2 = requests.post(analysis_url, json=data)
                     print("Response from url2", response2)
+                    time.sleep(5)
+                    response3 = requests.post(emotion_url, json=data)
+                    print("Response from url3", response3)
+                    time.sleep(5)
+                    response5 = requests.post(topic_url, json=data)
+                    print("Response from url5", response5)
 
-                # data3 = {"current_iteration": iteration}
-                # response3 = requests.post(url3, json=data3)
-
-                # # Call url4 after EVERY chunk once there are 4 existing chunks
-                # if iteration >= (RECORD_SECONDS * 4):
-                #     data4 = {"current_iteration": iteration}
-                #     response4 = requests.post(url4, json=data4)
-        
+                if iteration >= 60 and iteration % 60 == 0:
+                    data = {"start_time": iteration - 60, "end_time": iteration}
+                    response = requests.post(transcript_url, json=data)
+                    
     except KeyboardInterrupt:
         observer.stop()
 
