@@ -32,7 +32,7 @@ S3_BUCKET_NAME = 'respeaker-recordings'
 
 PROJECT_NO = 1
 CLASS_NO = 1
-PI_ID = 2
+PI_ID = 1
 
 BASE_DIR = f"Project_{PROJECT_NO}/Class_{CLASS_NO}/{DATE_DIR}/Pi_{PI_ID}"
 PROCESSED_FILES_KEY = f"{BASE_DIR}/processed_files.txt"

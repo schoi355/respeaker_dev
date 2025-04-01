@@ -222,6 +222,7 @@ def main():
     CLASS_NO = 1
     PI_ID = 1
     TRIAL_NO = str(dir_name)[-1]
+    bag_of_words = ['Technology', 'Entrepenuer', 'Food', 'Junk', 'Career', 'Coffee']
     # ************************************************************************************************************
     time.sleep(10)
     response = requests.post(setup_url, json={
@@ -268,15 +269,16 @@ def main():
                 # Call url once every 60 seconds
                 if iteration >= 120 and iteration % 60 == 0:
                     data = {"start_time": iteration - 120, "end_time": iteration}
+                    data_bow = {"start_time": iteration - 120, "end_time": iteration, "bag_of_words": bag_of_words}
                     response = requests.post(csns_url, json=data)
                     time.sleep(2)
-                    response2 = requests.post(analysis_url, json=data)
+                    response2 = requests.post(analysis_url, json=data_bow)
                     print("Response from url2", response2)
                     time.sleep(5)
                     response3 = requests.post(emotion_url, json=data)
                     print("Response from url3", response3)
                     time.sleep(5)
-                    response5 = requests.post(topic_url, json=data)
+                    response5 = requests.post(topic_url, json=data_bow)
                     print("Response from url5", response5)
 
                 if iteration >= 60 and iteration % 60 == 0:

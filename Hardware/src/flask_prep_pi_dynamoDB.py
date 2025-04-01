@@ -25,7 +25,7 @@ application.config.from_object(__name__)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 HARDWARE_DIR = os.path.dirname(SCRIPT_DIR)
 cfg_path = os.path.join(HARDWARE_DIR, "application.cfg")
-application.config.from_pyfile(cfg_path, silent=True)
+application.config.from_pyfile('../application.cfg', silent=True)
 
 AWS_ACCESS_KEY_ID = application.config['AWS_ACCESS_KEY_ID']
 AWS_SECRET_ACCESS_KEY = application.config['AWS_SECRET_ACCESS_KEY']
@@ -114,28 +114,12 @@ def get_id_json_from_s3():
     return json.loads(content)
 
 def get_transcription_from_s3(file_key):
+    print("GTFS3 File key:", file_key)
     response = s3.get_object(Bucket=S3_BUCKET_NAME, Key=file_key)
     content = response['Body'].read().decode('utf-8')
     if not content:
         return None
     return json.loads(content)
-
-def get_id_str():
-    # ID_file  = DIR_NAME + '/assign_speaker/ID.json'
-    # # Load IDs from the ID file
-    # with open(ID_file, 'r') as f:
-    #     ID_data = json.load(f)
-    #     # Convert word-based numeric IDs to integers and sort them
-    #     numeric_ids = sorted([word_to_num(info['ID'][0]) for info in ID_data.values()])
-    #     id_str = '_'.join(map(str, numeric_ids))
-    ID_data = get_id_json_from_s3()
-
-    numeric_ids = sorted([word_to_num(info['ID'][0]) for info in ID_data.values()])
-    id_str = '_'.join(map(str, numeric_ids))
-    
-    # id_str = "Apple"
-    return id_str
-
 
 # Function to get the lemma (base form) of a word
 def get_lemma(word):
@@ -148,16 +132,6 @@ def check_speakers_not_spoken():
     """
     return speakerId of ppl silent -> dynamoDB
     """
-    # parser = argparse.ArgumentParser(description="directory")
-    # parser.add_argument("-d", "--directory", required=True, help="directory that will contain the dataset")
-    # args = parser.parse_args()
-    # DIR_NAME = args.directory
-    # # Get the start and end times from the request
-
-    # Load the JSON data from the ID.json file
-    # with open(DIR_NAME + '/assign_speaker/ID.json', 'r') as file:
-    #     data = json.load(file)
-
     id_json = get_id_json_from_s3()
     print(id_json)
     # Initialize an empty set for preset_speakers
@@ -178,11 +152,6 @@ def check_speakers_not_spoken():
     speakers_not_spoken = check_speakers_within_timeframe(start_time, end_time, preset_speakers)
 
     speakers_not_spoken_result = json.dumps(speakers_not_spoken)
-    
-    # DynamoDB update logic
-    id_str = get_id_str()
-    cur_date_formatted = datetime.now().strftime('%Y-%m-%d')
-    cur_time_formatted = datetime.now().strftime('%H:%M:%S')
 
     try:
         # # Fetch the current item based on group_id
@@ -239,9 +208,8 @@ def check_speakers_within_timeframe(start_time, end_time, preset_speakers):
 
     # Define the range of numbers (10 to 240) for the filenames
     for number in range(start_time + CHUNKSIZE, end_time + 1, CHUNKSIZE):
-        prefix = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/transcription-files/'
-        mid_folder = get_dynamic_folder_name(prefix)
-        file_key = f'{prefix}{mid_folder}/chunk_{number}.wav.json'
+        prefix = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/transcription-files'
+        file_key = f'{prefix}/chunk_{number}.wav.json'
         data = get_transcription_from_s3(file_key)
         if data:
             for segment in data['transcription']:
@@ -264,9 +232,6 @@ def analyze_transcripts():
     args = parser.parse_args()
     DIR_NAME = args.directory
 
-    # Load the JSON data from the ID.json file
-    # with open(DIR_NAME + '/assign_speaker/ID.json', 'r') as file:
-    #     data = json.load(file)
     data = get_id_json_from_s3()
 
     # Initialize an empty set for preset_speakers
@@ -278,6 +243,7 @@ def analyze_transcripts():
             preset_speakers.add(person['ID'])
 
     data = request.json
+    bag_of_words = data['bag_of_words']
     request_start_time = int(data['start_time'])  # Example format: '20'
     request_end_time = int(data['end_time']) #60
     # Initialize an empty list to store the table data
@@ -286,12 +252,11 @@ def analyze_transcripts():
     # Define the range of numbers (105 to 240) for the filenames
     for number in range(request_start_time + CHUNKSIZE, request_end_time, CHUNKSIZE):
         #Provide path to transcript chunks here
-        prefix = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/transcription-files/'
-        mid_folder = get_dynamic_folder_name(prefix)
-        file_key = f'{prefix}{mid_folder}/chunk_{number}.wav.json'
+        prefix = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/transcription-files'
+        file_key = f'{prefix}/chunk_{number}.wav.json'
         data = get_transcription_from_s3(file_key)
 
-            # Extract the speaker names from the JSON data
+        # Extract the speaker names from the JSON data
         speaker_names = set(word['speaker'] for segment in data['transcription'] for word in segment.get('words', []) if 'speaker' in word)
 
         # Iterate through segments and extract relevant information
@@ -359,49 +324,9 @@ def analyze_transcripts():
 
     # Calculate the number of words spoken by each person
     df['Word Count'] = df['Sentence'].apply(lambda x: len(x.split()))
-
-    # Create a bag of words dictionary
-    # List of words with possible wildcards
-    bag_of_words = [
-        "Community garden",
-        "Food desert",
-        "Food swamp",
-        "food system",
-        "insecurity",
-        "health",
-        "obese",
-        "garden",
-        "access",
-        "urban",
-        "poverty",
-        "rural",
-        "low income",
-        "middle income",
-        "prices",
-        "minority",
-        "Sovereignty",
-        "Local",
-        "affordable",
-        "Vegetable",
-        "Meat",
-        "hung",
-        "Nutrition",
-        "Grow",
-        "Gather",
-        "Grocery",
-        "Agriculture",
-        "Climate change",
-        "Usda",
-        "Food",
-        "Policy",
-        "plant",
-        "environment",
-        "greenhouse gas",
-        "organic"
-    ]
+    
     # Replace with your dictionary
     bag_of_words = [word.lower() for word in bag_of_words]
-
     # Create a dictionary with root words (without wildcards)
     root_word_dict = {get_lemma(word): '*' in word for word in bag_of_words}
 
@@ -469,46 +394,10 @@ def analyze_transcripts():
 @application.route('/topic_detection', methods=['POST'])
 def topic_detection():
     data = request.json
+    bag_of_words = data['bag_of_words']
     request_start_time = int(data['start_time'])
     request_end_time = int(data['end_time'])
     speaker_topic = dict()
-    bag_of_words = [
-        "Community garden",
-        "Food desert",
-        "Food swamp",
-        "food system",
-        "insecurity",
-        "health",
-        "obese",
-        "garden",
-        "access",
-        "urban",
-        "poverty",
-        "rural",
-        "low income",
-        "middle income",
-        "prices",
-        "minority",
-        "Sovereignty",
-        "Local",
-        "affordable",
-        "Vegetable",
-        "Meat",
-        "hung",
-        "Nutrition",
-        "Grow",
-        "Gather",
-        "Grocery",
-        "Agriculture",
-        "Climate change",
-        "Usda",
-        "Food",
-        "Policy",
-        "plant",
-        "environment",
-        "greenhouse gas",
-        "organic"
-    ]
 
     def topic_detection(seq):
         CI = 2.5
@@ -654,15 +543,9 @@ def append_transcript():
     # Define the range of numbers (105 to 240) for the filenames
     for number in range(request_start_time + CHUNKSIZE, request_end_time + 1, CHUNKSIZE):
         #Provide path to transcript chunks here
-        prefix = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/transcription-files/'
-        mid_folder = get_dynamic_folder_name(prefix)
-        file_key = f'{prefix}{mid_folder}/chunk_{number}.wav.json'
+        prefix = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/transcription-files'
+        file_key = f'{prefix}/chunk_{number}.wav.json'
         data = get_transcription_from_s3(file_key)
-
-        # Extract the speaker names from the JSON data
-        # speaker_names = set(word['speaker'] for segment in data['transcription'] for word in segment.get('words', []) 
-        #                    if 'speaker' in word)
-
         
         # Iterate through segments and extract relevant information
         for segment in data['transcription']:
