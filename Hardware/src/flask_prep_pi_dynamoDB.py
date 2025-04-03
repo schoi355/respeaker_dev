@@ -114,7 +114,7 @@ def get_id_json_from_s3():
     return json.loads(content)
 
 def get_transcription_from_s3(file_key):
-    print("GTFS3 File key:", file_key)
+    # print("GTFS3 File key:", file_key)
     response = s3.get_object(Bucket=S3_BUCKET_NAME, Key=file_key)
     content = response['Body'].read().decode('utf-8')
     if not content:
@@ -133,7 +133,6 @@ def check_speakers_not_spoken():
     return speakerId of ppl silent -> dynamoDB
     """
     id_json = get_id_json_from_s3()
-    print(id_json)
     # Initialize an empty set for preset_speakers
     preset_speakers = set()
 
@@ -146,8 +145,6 @@ def check_speakers_not_spoken():
     start_time = int(data['start_time'])  # Example format: '20'
     end_time = int(data['end_time']) #60
 
-    
-    print("Current time to call", end_time)
     # Call a function to check speakers who have not spoken within the specified time frame
     speakers_not_spoken = check_speakers_within_timeframe(start_time, end_time, preset_speakers)
 
@@ -199,7 +196,6 @@ def check_speakers_not_spoken():
         'speakers_not_spoken': speakers_not_spoken  # Assuming speakers_not_spoken is the list of speakers
     }
 
-    print(speakers_not_spoken)
     return jsonify(result)
 
 
@@ -217,8 +213,6 @@ def check_speakers_within_timeframe(start_time, end_time, preset_speakers):
                     continue    
                 speaker_name = segment['speaker']
                 speakers_not_spoken.discard(speaker_name)
-
-    print("Speakers not speaking: ", list(speakers_not_spoken))
     return list(speakers_not_spoken)
   
 # TODO: Need to Access the transcribed files from somewhere
@@ -358,10 +352,8 @@ def analyze_transcripts():
     for word, person in first_occurrence.items():
         if person:
             ans.append(f"{person} spoke the word '{word}' first.")
-            #print(f"{person} spoke the word '{word}' first.")
         else:
             ans.append(f"The word '{word}' was not spoken.")
-            #print(f"The word '{word}' was not spoken.")
 
     # Prepare the separate results for word counts and first words spoken
     word_counts_result = {person: int(group['Word Count'].sum().item()) for person, group in df.groupby('Person')}
@@ -370,7 +362,6 @@ def analyze_transcripts():
     try:
         response = table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})
         item = response.get('Item')
-        # print("ITEM: ", item)
 
         if item:
             item[f'Trial_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['Word_Count'] = json.dumps(word_counts_result)
@@ -386,27 +377,26 @@ def analyze_transcripts():
         'first_words_spoken': first_words_spoken_result
     }
 
-    print(first_words_spoken_result)
-
     return jsonify(result)
 
 
 @application.route('/topic_detection', methods=['POST'])
 def topic_detection():
     data = request.json
-    bag_of_words = data['bag_of_words']
     request_start_time = int(data['start_time'])
     request_end_time = int(data['end_time'])
     speaker_topic = dict()
+    spoken_topics = dict()
+    bag_of_words = data['bag_of_words']
+    topic_hypothesis = f"This sentence is about {', '.join(bag_of_words)}."
 
     def topic_detection(seq):
-        CI = 2.5
-        res = topic_detection_classifier(seq, bag_of_words, multi_label=True)
-        score = sum(res['scores'][:5])
-        if score > CI:
-            return 'On-Topic'
+        CI = 0.6
+        res = topic_detection_classifier(seq, topic_hypothesis, multi_label=False)
+        if res['scores'][0] > CI:
+            return 'On-Topic', [res['labels'][i] for i in range(3)]
         else:
-            return 'Off-Topic'
+            return 'Off-Topic', [res['labels'][0]]
     
     try:
         response = transcript_table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})
@@ -419,13 +409,14 @@ def topic_detection():
         
         for speaker, spoken in speaker_texts.items():
             if speaker != 'Unknown':
-                speaker_topic[speaker] = topic_detection(spoken)
+                speaker_topic[speaker], spoken_topics[speaker] = topic_detection(spoken)
         
         try:
             response = table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})
             analysis_item = response.get('Item')
 
             analysis_item[f'Trial_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['Off_Topic'] = json.dumps(speaker_topic)
+            analysis_item[f'Trial_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['Topics'] = json.dumps(spoken_topics)
             table.put_item(Item=analysis_item)
         except botocore.exceptions.ClientError as error:
             print(f"An error occurred: {error}")
@@ -522,8 +513,6 @@ def check_server_working_post():
 
 @application.route('/append_transcript', methods=['POST'])
 def append_transcript():
-    print("Starting Appending")
-    print(PROJECT_NO, CLASS_NO, TRIAL_NO, PI_ID)
     data = get_id_json_from_s3()
 
     # Initialize an empty set for preset_speakers
@@ -604,7 +593,6 @@ def append_transcript():
     except botocore.exceptions.ClientError as error:
         print(f"An error occurred: {error}")
                 
-    print('Ending Appending')
     result = {
         'Message': 'Appending Transcription completed and stored in DynamoDB.',
     }

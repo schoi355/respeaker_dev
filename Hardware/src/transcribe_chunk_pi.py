@@ -266,24 +266,25 @@ def main():
 
                 upload_to_s3(transcription_file, transcription_s3_path)
 
-                # Call url once every 60 seconds
-                if iteration >= 120 and iteration % 60 == 0:
-                    data = {"start_time": iteration - 120, "end_time": iteration}
-                    data_bow = {"start_time": iteration - 120, "end_time": iteration, "bag_of_words": bag_of_words}
+                # Call url once every 30 seconds
+                if iteration >= 30 and iteration % 30 == 0:
+                    data = {"start_time": iteration - 30, "end_time": iteration}
+                    response = requests.post(transcript_url, json=data)
+
+                if iteration >= 60 and iteration % 15 == 0:
+                    data = {"start_time": iteration - 60, "end_time": iteration}
+                    data_bow = {"start_time": iteration - 60, "end_time": iteration, "bag_of_words": bag_of_words}
+                    time.sleep(1)
                     response = requests.post(csns_url, json=data)
-                    time.sleep(2)
+                    time.sleep(1)
                     response2 = requests.post(analysis_url, json=data_bow)
                     print("Response from url2", response2)
-                    time.sleep(5)
+                    time.sleep(1)
                     response3 = requests.post(emotion_url, json=data)
                     print("Response from url3", response3)
-                    time.sleep(5)
+                    time.sleep(1)
                     response5 = requests.post(topic_url, json=data_bow)
                     print("Response from url5", response5)
-
-                if iteration >= 60 and iteration % 60 == 0:
-                    data = {"start_time": iteration - 60, "end_time": iteration}
-                    response = requests.post(transcript_url, json=data)
                     
     except KeyboardInterrupt:
         observer.stop()
