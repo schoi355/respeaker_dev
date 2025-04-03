@@ -143,6 +143,7 @@ The next step is to calibrate the DOA angles for each speaker. In one of the ter
 pi1 d8:3a:dd:f3:3d:dd
 pi2 d8:3a:dd:f2:84:6f
 pi3 d8:3a:dd:e8:4b:a2
+pi4 d8:3a:dd:f6:79:0c
 
 ----------------------------------------------------------------------------------------
 ### AWS URL
