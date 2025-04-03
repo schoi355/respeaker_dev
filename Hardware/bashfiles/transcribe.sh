@@ -16,6 +16,16 @@ if [ -z "$HIGHEST_COUNTER" ]; then
     DIRPATH="$PROJECT_ROOT/Hardware/dataset/${TODAY}_0"
 fi
 
-python3 $PROJECT_ROOT/Hardware/src/transcribe_chunk_pi.py -d $DIRPATH
+WATCH_DIR="$DIRPATH/assign_speaker"
+TARGET_FILE="config.json"
 
+echo "Watching for $TARGET_FILE in $WATCH_DIR..."
 
+while true; do
+    inotifywait -e create "$WATCH_DIR" | while read path action file; do
+        if [[ "$file" == "$TARGET_FILE" ]]; then
+            echo "$TARGET_FILE created. Running Python script..."
+            python3 $PROJECT_ROOT/Hardware/src/transcribe_chunk_pi.py -d $DIRPATH
+        fi
+    done
+done

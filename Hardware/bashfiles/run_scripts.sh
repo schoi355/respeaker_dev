@@ -13,13 +13,17 @@ log "Starting setup.sh"
 sleep 5
 $SCRIPT_DIR/setup.sh >> $PROJECT_ROOT/Hardware/logs/setup.log 2>&1 &
 
-log "Starting record.sh"
-sleep 5
-$SCRIPT_DIR/record.sh >> $PROJECT_ROOT/Hardware/logs/record.log 2>&1 &
-
 log "Starting flask.sh"
 sleep 5
 $SCRIPT_DIR/flask.sh >> $PROJECT_ROOT/Hardware/logs/flask.log 2>&1 &
+
+log "Starting flask_batch.sh"
+sleep 5
+$SCRIPT_DIR/flask_batch.sh >> $PROJECT_ROOT/Hardware/logs/flask_batch.log 2>&1 &
+
+log "Starting record.sh"
+sleep 5
+$SCRIPT_DIR/record.sh >> $PROJECT_ROOT/Hardware/logs/record.log 2>&1 &
 
 log "Starting transcribe.sh"
 sleep 5

@@ -312,7 +312,7 @@ def main():
     ID_file  = dir_name + '/assign_speaker/ID.json'
     config_file = dir_name + '/assign_speaker/config.json'
 
-    pi_id = 1   # Change this according to the sd card number
+    pi_id = 2   # Change this according to the sd card number
     b1, b2, b3 = 6, 5, 4
 
     chip = gpiod.Chip("/dev/gpiochip4")
@@ -324,11 +324,13 @@ def main():
         while button_request.get_value(b1) == Value.ACTIVE and button_request.get_value(b2) == Value.ACTIVE:
             display_text(disp, f"{prompt} -->", (40, 15), "Set as Default -->", (40, 40))
             pass
+        # Default value
         if button_request.get_value(b2) == Value.INACTIVE:
             config[key] = 1
             display_text(disp, f"{key} is set to {1}", (5, 15))
             time.sleep(2)
             # save_config(disp, config_file, key, 1) # default project/class id is 1
+        # Chose the value using buttons
         elif button_request.get_value(b1) == Value.INACTIVE:
             value = select_id(disp, config_file, key, prompt, button_request, b1, b2, b3)
             config[key] = value
@@ -371,12 +373,18 @@ def main():
     prev_line1_state = Value.ACTIVE
     button_request = button_setup(chip, (b1, b2, b3)) 
 
-    upload_json_to_s3(ID_file, 'ID.json')
+    # upload_json_to_s3(ID_file, 'ID.json')
+    # upload_json_to_s3(config_file, 'config.json')
+    match = re.search(r'_(\d+)$', dir_name)
+    TRIAL_NO = match.group(1) if match else None
+    idjson_s3_path = f'Project_{config["project_id"]}/Class_{config["class_id"]}/{DATE_DIR}/Pi_{pi_id}/Trial_{TRIAL_NO}/ID.json'
+    config_s3_path = f'Project_{config["project_id"]}/Class_{config["class_id"]}/{DATE_DIR}/Pi_{pi_id}/Trial_{TRIAL_NO}/config.json'
+    upload_to_s3(ID_file, idjson_s3_path)
+    upload_to_s3(config_file, config_s3_path)
 
     # Start recording
     while True:
         line1 = button_request.get_value(b2)
-        prev_line1_state = line1
         if iteration >= sec:
             print("RECORDING FINISHED")
             display_text(disp, "RECORDING FINISHED", (10,15))
@@ -400,17 +408,14 @@ def main():
             display_text(disp, "RECORDING STARTED", (10,15), "Hold to Finish recording -->", (0, 40))
                 
             unknown_speakers = record_audio(stream, p, dev, ID_file, audio_file, doa_file, unknown_speakers)
-            match = re.search(r'_(\d+)$', dir_name)
-            TRIAL_NO = match.group(1) if match else None
             update_id_json(TRIAL_NO, 'ID.json', dir_name, unknown_speakers, config["project_id"], config["class_id"], pi_id)
-            id_file_name = os.path.basename(dir_name + '/assign_speaker/ID.json')
             
             audio_s3_path = f'Project_{config["project_id"]}/Class_{config["class_id"]}/{DATE_DIR}/Pi_{pi_id}/Trial_{TRIAL_NO}/audio-files/{os.path.basename(audio_file)}'
             doa_s3_path = f'Project_{config["project_id"]}/Class_{config["class_id"]}/{DATE_DIR}/Pi_{pi_id}/Trial_{TRIAL_NO}/doa-files/{os.path.basename(doa_file)}'
-            idjson_s3_path = f'Project_{config["project_id"]}/Class_{config["class_id"]}/{DATE_DIR}/Pi_{pi_id}/Trial_{TRIAL_NO}/{id_file_name}'
+            idjson_s3_path = f'Project_{config["project_id"]}/Class_{config["class_id"]}/{DATE_DIR}/Pi_{pi_id}/Trial_{TRIAL_NO}/ID.json'
 
             
-            upload_to_s3(dir_name + '/assign_speaker/ID.json', idjson_s3_path)
+            upload_to_s3(ID_file, idjson_s3_path)
             upload_to_s3(audio_file, audio_s3_path)
             upload_to_s3(doa_file, doa_s3_path)
 

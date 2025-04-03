@@ -3,7 +3,7 @@ import json
 import boto3
 import pandas as pd
 import time
-from flask import Flask, jsonify
+from flask import Flask, request, jsonify
 from datetime import datetime, timedelta
 
 def read_cfg(file_path):
@@ -29,10 +29,10 @@ AWS_ACCESS_KEY_ID = aws_key.get('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = aws_key.get('AWS_SECRET_ACCESS_KEY')
 AWS_REGION = aws_key.get('AWS_REGION')
 S3_BUCKET_NAME = 'respeaker-recordings'
-
+    
 PROJECT_NO = 1
 CLASS_NO = 1
-PI_ID = 1
+PI_ID = 2
 
 BASE_DIR = f"Project_{PROJECT_NO}/Class_{CLASS_NO}/{DATE_DIR}/Pi_{PI_ID}"
 PROCESSED_FILES_KEY = f"{BASE_DIR}/processed_files.txt"
@@ -203,4 +203,4 @@ if __name__ == "__main__":
     import threading
     watcher_thread = threading.Thread(target=watch_s3, args=(PROJECT_NO, CLASS_NO, DATE_DIR, PI_ID), daemon=True)
     watcher_thread.start()
-    app.run(host="127.0.0.1", port=7000, debug=True)
+    app.run(host="127.0.0.1", port=8000, debug=True)

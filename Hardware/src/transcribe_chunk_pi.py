@@ -227,10 +227,15 @@ def main():
 
     # ******************************************************* SET BEFORE TRIAL ***********************************
     date_folder = datetime.now().strftime('%Y-%m-%d')
-    PROJECT_NO = 1
-    CLASS_NO = 1
-    PI_ID = 1
-    TRIAL_NO = str(dir_name)[-1]
+    config_file  = dir_name + '/assign_speaker/config.json'
+    with open(config_file, 'r') as f:
+        config_data = json.load(f)
+        
+    PROJECT_NO = config_data['project_id']
+    CLASS_NO = config_data['class_id']
+    PI_ID = config_data['pi_id']
+    match = re.search(r'_(\d+)$', dir_name)
+    TRIAL_NO = match.group(1) if match else None
     bag_of_words = ['Technology', 'Entrepenuer', 'Food', 'Junk', 'Career', 'Coffee']
     # ************************************************************************************************************
     config = {
