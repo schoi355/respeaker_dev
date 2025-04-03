@@ -205,12 +205,21 @@ def main():
     observer = Observer()
     observer.schedule(event_handler, path=watched_directory, recursive=True)
 
-    setup_url = "http://127.0.0.1:8000/initial_setup"
-    csns_url = "http://127.0.0.1:8000/check_speakers_not_spoken"
-    analysis_url = "http://127.0.0.1:8000/analysis"
-    emotion_url = "http://127.0.0.1:8000/emotion_check"
-    topic_url = "http://127.0.0.1:8000/topic_detection"
-    transcript_url = "http://127.0.0.1:8000/append_transcript"
+    # ********************************************************** LOCAL URLs *************************************
+    # csns_url = "http://127.0.0.1:8000/check_speakers_not_spoken"
+    # analysis_url = "http://127.0.0.1:8000/analysis"
+    # emotion_url = "http://127.0.0.1:8000/emotion_check"
+    # topic_url = "http://127.0.0.1:8000/topic_detection"
+    # transcript_url = "http://127.0.0.1:8000/append_transcript"
+    # ***********************************************************************************************************
+
+    # ********************************************* SERVER URLs *************************************************
+    csns_url = "http://3.131.78.98/check_speakers_not_spoken"
+    analysis_url = "http://3.131.78.98/analysis"
+    emotion_url = "http://3.131.78.98/emotion_check"
+    topic_url = "http://3.131.78.98/topic_detection"
+    transcript_url = "http://3.131.78.98/append_transcript"
+    # ***********************************************************************************************************
 
     print(f"Watching directory: {watched_directory}")
     observer.start()
@@ -280,6 +289,7 @@ def main():
                         'config': config,
                     }
                     response = requests.post(transcript_url, json=data)
+                    print("Response from Appending: ", response)
 
                 if iteration >= 60 and iteration % 15 == 0:
                     data = {
@@ -294,16 +304,17 @@ def main():
                         'config': config,
                     }
                     time.sleep(1)
-                    response = requests.post(csns_url, json=data)
+                    response2 = requests.post(csns_url, json=data)
+                    print("Response from Not Spoken: ", response2)
                     time.sleep(1)
-                    response2 = requests.post(analysis_url, json=data_bow)
-                    print("Response from url2", response2)
+                    response3 = requests.post(analysis_url, json=data_bow)
+                    print("Response from analysis: ", response3)
                     time.sleep(1)
-                    response3 = requests.post(emotion_url, json=data)
-                    print("Response from url3", response3)
+                    response4 = requests.post(emotion_url, json=data)
+                    print("Response from Emotion: ", response4)
                     time.sleep(1)
                     response5 = requests.post(topic_url, json=data_bow)
-                    print("Response from url5", response5)
+                    print("Response from Topic", response5)
                     
     except KeyboardInterrupt:
         observer.stop()
