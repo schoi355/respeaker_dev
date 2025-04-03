@@ -234,9 +234,7 @@ crontab -e
 Add these lines of codes
 
 ```
-@reboot sleep 30 && /home/respeaker2/respeaker_dev/Hardware/setup.sh >> /home/respeaker2/logs/setup.log 2>&1
-@reboot sleep 35 && /home/respeaker2/respeaker_dev/Hardware/flask.sh >> /home/respeaker2/logs/flask.log 2>&1
-@reboot sleep 40 && /home/respeaker2/respeaker_dev/Hardware/transcribe.sh >> /home/respeaker2/logs/transcribe.log 2>&1
+@reboot sleep 30 && $HOME/respeaker_dev/Hardware/bashfiles/run_scripts.sh
 ```
 
 
