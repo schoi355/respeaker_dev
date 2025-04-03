@@ -24,8 +24,8 @@ application.config.from_object(__name__)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 HARDWARE_DIR = os.path.dirname(SCRIPT_DIR)
-cfg_path = os.path.join(HARDWARE_DIR, "application.cfg")
-application.config.from_pyfile('../application.cfg', silent=True)
+cfg_path = os.path.join(HARDWARE_DIR, "qube.cfg")
+application.config.from_pyfile('../qube.cfg', silent=True)
 
 AWS_ACCESS_KEY_ID = application.config['AWS_ACCESS_KEY_ID']
 AWS_SECRET_ACCESS_KEY = application.config['AWS_SECRET_ACCESS_KEY']

@@ -17,15 +17,10 @@ import sys
 import argparse
 from collections import defaultdict
 
-
 application = Flask(__name__)
 
 application.config.from_object(__name__)
-
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-HARDWARE_DIR = os.path.dirname(SCRIPT_DIR)
-cfg_path = os.path.join(HARDWARE_DIR, "application.cfg")
-application.config.from_pyfile('../application.cfg', silent=True)
+application.config.from_pyfile('./qube.cfg', silent=True)
 
 AWS_ACCESS_KEY_ID = application.config['AWS_ACCESS_KEY_ID']
 AWS_SECRET_ACCESS_KEY = application.config['AWS_SECRET_ACCESS_KEY']
@@ -45,10 +40,6 @@ emotion_detection_classifier = pipeline(
 )
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-parser = argparse.ArgumentParser(description="directory")
-parser.add_argument("-d", "--directory", required=True, help="directory that will contain the dataset")
-args = parser.parse_args()
-dir_name = args.directory
 # TODO: Set using cmd args
 PROJECT_NO = None
 CLASS_NO = None
@@ -56,7 +47,7 @@ PI_ID = None
 TRIAL_NO = None
 date_folder = datetime.now().strftime('%Y-%m-%d')
 # date_folder = '2025-02-20'
-CHUNKSIZE = 15 # sec
+CHUNKSIZE = 15  # sec
 
 dynamodb = boto3.resource(
     'dynamodb',
@@ -82,13 +73,14 @@ stemmer = PorterStemmer()
 # Load the spaCy language model
 nlp = spacy.load("en_core_web_sm")
 
+
 # Load LLM
 # classifier = pipeline(task="text-classification", model="SamLowe/roberta-base-go_emotions", top_k=None)
 
 
 def word_to_num(word):
     mapping = {
-        'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 
+        'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8,
         'nine': 9, 'ten': 10, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9}
     return mapping.get(word.lower(), 0)
 
@@ -103,7 +95,7 @@ def get_dynamic_folder_name(prefix):
     if 'CommonPrefixes' in response:
         dynamic = response['CommonPrefixes'][0]['Prefix'].split('/')[-2]
         return dynamic
-    
+
     return '1_2_3_4'
 
 
@@ -113,6 +105,7 @@ def get_id_json_from_s3():
     content = response['Body'].read().decode('utf-8')
     return json.loads(content)
 
+
 def get_transcription_from_s3(file_key):
     # print("GTFS3 File key:", file_key)
     response = s3.get_object(Bucket=S3_BUCKET_NAME, Key=file_key)
@@ -120,6 +113,7 @@ def get_transcription_from_s3(file_key):
     if not content:
         return None
     return json.loads(content)
+
 
 # Function to get the lemma (base form) of a word
 def get_lemma(word):
@@ -139,11 +133,11 @@ def check_speakers_not_spoken():
     # Iterate through the data and add the first value of the ID array for each person to the set
     for person in id_json.values():
         if person['ID']:  # Check if the ID list is not empty
-            preset_speakers.add(person['ID']) 
+            preset_speakers.add(person['ID'])
 
     data = request.json
     start_time = int(data['start_time'])  # Example format: '20'
-    end_time = int(data['end_time']) #60
+    end_time = int(data['end_time'])  # 60
 
     # Call a function to check speakers who have not spoken within the specified time frame
     speakers_not_spoken = check_speakers_within_timeframe(start_time, end_time, preset_speakers)
@@ -210,22 +204,18 @@ def check_speakers_within_timeframe(start_time, end_time, preset_speakers):
         if data:
             for segment in data['transcription']:
                 if 'speaker' not in segment:
-                    continue    
+                    continue
                 speaker_name = segment['speaker']
                 speakers_not_spoken.discard(speaker_name)
     return list(speakers_not_spoken)
-  
+
+
 # TODO: Need to Access the transcribed files from somewhere
 @application.route('/analysis', methods=['POST'])
 def analyze_transcripts():
     """
     Off-topic and emotion -> DynamoDB {JSON}
     """
-    parser = argparse.ArgumentParser(description="directory")
-    parser.add_argument("-d", "--directory", required=True, help="directory that will contain the dataset")
-    args = parser.parse_args()
-    DIR_NAME = args.directory
-
     data = get_id_json_from_s3()
 
     # Initialize an empty set for preset_speakers
@@ -239,19 +229,20 @@ def analyze_transcripts():
     data = request.json
     bag_of_words = data['bag_of_words']
     request_start_time = int(data['start_time'])  # Example format: '20'
-    request_end_time = int(data['end_time']) #60
+    request_end_time = int(data['end_time'])  # 60
     # Initialize an empty list to store the table data
     all_table_data = []
 
     # Define the range of numbers (105 to 240) for the filenames
     for number in range(request_start_time + CHUNKSIZE, request_end_time, CHUNKSIZE):
-        #Provide path to transcript chunks here
+        # Provide path to transcript chunks here
         prefix = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/transcription-files'
         file_key = f'{prefix}/chunk_{number}.wav.json'
         data = get_transcription_from_s3(file_key)
 
         # Extract the speaker names from the JSON data
-        speaker_names = set(word['speaker'] for segment in data['transcription'] for word in segment.get('words', []) if 'speaker' in word)
+        speaker_names = set(word['speaker'] for segment in data['transcription'] for word in segment.get('words', []) if
+                            'speaker' in word)
 
         # Iterate through segments and extract relevant information
         for segment in data['transcription']:
@@ -303,7 +294,6 @@ def analyze_transcripts():
             current_start_time = data['Start Time']
             current_end_time = data['End Time']
 
-
     # Add the last merged sentence
     if current_sentence:
         merged_table_data.append({
@@ -318,12 +308,11 @@ def analyze_transcripts():
 
     # Calculate the number of words spoken by each person
     df['Word Count'] = df['Sentence'].apply(lambda x: len(x.split()))
-    
+
     # Replace with your dictionary
     bag_of_words = [word.lower() for word in bag_of_words]
     # Create a dictionary with root words (without wildcards)
     root_word_dict = {get_lemma(word): '*' in word for word in bag_of_words}
-
 
     # Initialize a dictionary to store the first occurrence of words from the bag of words
     first_occurrence = {word: None for word in root_word_dict}
@@ -364,8 +353,10 @@ def analyze_transcripts():
         item = response.get('Item')
 
         if item:
-            item[f'Trial_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['Word_Count'] = json.dumps(word_counts_result)
-            item[f'Trial_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['First_Words_Spoken'] = json.dumps(first_words_spoken_result)
+            item[f'Trial_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['Word_Count'] = json.dumps(
+                word_counts_result)
+            item[f'Trial_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['First_Words_Spoken'] = json.dumps(
+                first_words_spoken_result)
             table.put_item(Item=item)
 
     except botocore.exceptions.ClientError as error:
@@ -397,7 +388,7 @@ def topic_detection():
             return 'On-Topic', [res['labels'][i] for i in range(3)]
         else:
             return 'Off-Topic', [res['labels'][0]]
-    
+
     try:
         response = transcript_table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})
         item = response.get('Item')
@@ -406,24 +397,26 @@ def topic_detection():
         df['End_time'] = df['Timestamp'].str.split('-').str[1].astype(int)
         df_filtered = df[df['End_time'] <= request_end_time]
         speaker_texts = df_filtered.groupby('Speaker')['Text'].agg(" ".join).to_dict()
-        
+
         for speaker, spoken in speaker_texts.items():
             if speaker != 'Unknown':
                 speaker_topic[speaker], spoken_topics[speaker] = topic_detection(spoken)
-        
+
         try:
             response = table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})
             analysis_item = response.get('Item')
 
-            analysis_item[f'Trial_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['Off_Topic'] = json.dumps(speaker_topic)
-            analysis_item[f'Trial_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['Topics'] = json.dumps(spoken_topics)
+            analysis_item[f'Trial_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['Off_Topic'] = json.dumps(
+                speaker_topic)
+            analysis_item[f'Trial_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['Topics'] = json.dumps(
+                spoken_topics)
             table.put_item(Item=analysis_item)
         except botocore.exceptions.ClientError as error:
             print(f"An error occurred: {error}")
-        
+
     except botocore.exceptions.ClientError as error:
         print(f"An error occurred: {error}")
-            
+
     return jsonify({
         'message': 'Topic Detection completed and stored in DynamoDB',
     })
@@ -444,25 +437,26 @@ def emotion_check():
         df['End_time'] = df['Timestamp'].str.split('-').str[1].astype(int)
         df_filtered = df[df['End_time'] <= request_end_time]
         speaker_texts = df_filtered.groupby('Speaker')['Text'].agg(" ".join).to_dict()
-        
+
         for speaker, spoken in speaker_texts.items():
             if speaker != 'Unknown':
                 op = emotion_detection_classifier(spoken)
                 op[0].sort(key=lambda x: x['score'], reverse=True)
                 speaker_emotion[speaker] = op[0][0]['label']
-        
+
         try:
             response = table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})
             analysis_item = response.get('Item')
 
-            analysis_item[f'Trial_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['Emotion'] = json.dumps(speaker_emotion)
+            analysis_item[f'Trial_{TRIAL_NO}'][f'{request_start_time}-{request_end_time}']['Emotion'] = json.dumps(
+                speaker_emotion)
             table.put_item(Item=analysis_item)
         except botocore.exceptions.ClientError as error:
             print(f"An error occurred: {error}")
-        
+
     except botocore.exceptions.ClientError as error:
         print(f"An error occurred: {error}")
-            
+
     return jsonify({
         'message': 'Emotion analysis completed and stored in DynamoDB',
     })
@@ -525,17 +519,17 @@ def append_transcript():
 
     data = request.json
     request_start_time = int(data['start_time'])  # Example format: '20'
-    request_end_time = int(data['end_time']) #60
+    request_end_time = int(data['end_time'])  # 60
     # Initialize an empty list to store the table data
     speaker_words = defaultdict(str)
 
     # Define the range of numbers (105 to 240) for the filenames
     for number in range(request_start_time + CHUNKSIZE, request_end_time + 1, CHUNKSIZE):
-        #Provide path to transcript chunks here
+        # Provide path to transcript chunks here
         prefix = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/transcription-files'
         file_key = f'{prefix}/chunk_{number}.wav.json'
         data = get_transcription_from_s3(file_key)
-        
+
         # Iterate through segments and extract relevant information
         for segment in data['transcription']:
             # Extract words spoken by each person
@@ -568,13 +562,13 @@ def append_transcript():
                 item_speaker = item[f'Transcript_{TRIAL_NO}']['Speaker']
                 item_text = item[f'Transcript_{TRIAL_NO}']['Text']
 
-                for ts, s, t in zip(timestamp, speakers, texts):     
+                for ts, s, t in zip(timestamp, speakers, texts):
                     item_timestamp.append(ts)
                     item_speaker.append(s)
                     item_text.append(t)
-                
+
                 item[f'Transcript_{TRIAL_NO}']['Timestamp'] = item_timestamp
-                item[f'Transcript_{TRIAL_NO}']['Speaker'] =item_speaker
+                item[f'Transcript_{TRIAL_NO}']['Speaker'] = item_speaker
                 item[f'Transcript_{TRIAL_NO}']['Text'] = item_text
 
             transcript_table.put_item(Item=item)
@@ -592,7 +586,7 @@ def append_transcript():
             transcript_table.put_item(Item=new_item)
     except botocore.exceptions.ClientError as error:
         print(f"An error occurred: {error}")
-                
+
     result = {
         'Message': 'Appending Transcription completed and stored in DynamoDB.',
     }
@@ -618,5 +612,6 @@ def initial_setup():
         'PI_ID': PI_ID,
     })
 
+
 if __name__ == '__main__':
-    application.run(debug=True, port=8000)
+    application.run(host='0.0.0.0', debug=True, port=8080)
