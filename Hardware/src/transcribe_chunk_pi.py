@@ -224,14 +224,20 @@ def main():
     TRIAL_NO = str(dir_name)[-1]
     bag_of_words = ['Technology', 'Entrepenuer', 'Food', 'Junk', 'Career', 'Coffee']
     # ************************************************************************************************************
-    time.sleep(10)
-    response = requests.post(setup_url, json={
-        "PROJECT_NO": PROJECT_NO,
-        "CLASS_NO": CLASS_NO,
-        "TRIAL_NO": TRIAL_NO,
-        "PI_ID": PI_ID
-    })
-    print(response.text)
+    config = {
+        'PROJECT_NO': PROJECT_NO,
+        'CLASS_NO': CLASS_NO,
+        'PI_ID': PI_ID,
+        'TRIAL_NO': TRIAL_NO,
+    }
+    # time.sleep(10)
+    # response = requests.post(setup_url, json={
+    #     "PROJECT_NO": PROJECT_NO,
+    #     "CLASS_NO": CLASS_NO,
+    #     "TRIAL_NO": TRIAL_NO,
+    #     "PI_ID": PI_ID
+    # })
+    # print(response.text)
 
     try:
         while True:
@@ -268,12 +274,25 @@ def main():
 
                 # Call url once every 30 seconds
                 if iteration >= 30 and iteration % 30 == 0:
-                    data = {"start_time": iteration - 30, "end_time": iteration}
+                    data = {
+                        "start_time": iteration - 30,
+                        "end_time": iteration,
+                        'config': config,
+                    }
                     response = requests.post(transcript_url, json=data)
 
                 if iteration >= 60 and iteration % 15 == 0:
-                    data = {"start_time": iteration - 60, "end_time": iteration}
-                    data_bow = {"start_time": iteration - 60, "end_time": iteration, "bag_of_words": bag_of_words}
+                    data = {
+                        "start_time": iteration - 60,
+                        "end_time": iteration,
+                        'config': config
+                    }
+                    data_bow = {
+                        "start_time": iteration - 60,
+                        "end_time": iteration,
+                        "bag_of_words": bag_of_words,
+                        'config': config,
+                    }
                     time.sleep(1)
                     response = requests.post(csns_url, json=data)
                     time.sleep(1)

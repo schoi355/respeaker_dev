@@ -20,7 +20,8 @@ from collections import defaultdict
 application = Flask(__name__)
 
 application.config.from_object(__name__)
-application.config.from_pyfile('./qube.cfg', silent=True)
+# application.config.from_pyfile('./qube.cfg', silent=True)
+application.config.from_pyfile('../Hardware/application.cfg', silent=True)
 
 AWS_ACCESS_KEY_ID = application.config['AWS_ACCESS_KEY_ID']
 AWS_SECRET_ACCESS_KEY = application.config['AWS_SECRET_ACCESS_KEY']
@@ -40,11 +41,6 @@ emotion_detection_classifier = pipeline(
 )
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-# TODO: Set using cmd args
-PROJECT_NO = None
-CLASS_NO = None
-PI_ID = None
-TRIAL_NO = None
 date_folder = datetime.now().strftime('%Y-%m-%d')
 # date_folder = '2025-02-20'
 CHUNKSIZE = 15  # sec
@@ -74,10 +70,6 @@ stemmer = PorterStemmer()
 nlp = spacy.load("en_core_web_sm")
 
 
-# Load LLM
-# classifier = pipeline(task="text-classification", model="SamLowe/roberta-base-go_emotions", top_k=None)
-
-
 def word_to_num(word):
     mapping = {
         'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8,
@@ -99,7 +91,7 @@ def get_dynamic_folder_name(prefix):
     return '1_2_3_4'
 
 
-def get_id_json_from_s3():
+def get_id_json_from_s3(PROJECT_NO, CLASS_NO, PI_ID, TRIAL_NO):
     file_key = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/ID.json'
     response = s3.get_object(Bucket=S3_BUCKET_NAME, Key=file_key)
     content = response['Body'].read().decode('utf-8')
@@ -126,7 +118,13 @@ def check_speakers_not_spoken():
     """
     return speakerId of ppl silent -> dynamoDB
     """
-    id_json = get_id_json_from_s3()
+    data = request.json
+    start_time = int(data['start_time'])  # Example format: '20'
+    end_time = int(data['end_time'])  # 60
+    PROJECT_NO, CLASS_NO = data['config']['PROJECT_NO'], data['config']['CLASS_NO']
+    PI_ID, TRIAL_NO = data['config']['PI_ID'], data['config']['TRIAL_NO']
+
+    id_json = get_id_json_from_s3(PROJECT_NO, CLASS_NO, PI_ID, TRIAL_NO)
     # Initialize an empty set for preset_speakers
     preset_speakers = set()
 
@@ -135,12 +133,16 @@ def check_speakers_not_spoken():
         if person['ID']:  # Check if the ID list is not empty
             preset_speakers.add(person['ID'])
 
-    data = request.json
-    start_time = int(data['start_time'])  # Example format: '20'
-    end_time = int(data['end_time'])  # 60
-
     # Call a function to check speakers who have not spoken within the specified time frame
-    speakers_not_spoken = check_speakers_within_timeframe(start_time, end_time, preset_speakers)
+    speakers_not_spoken = check_speakers_within_timeframe(
+        start_time,
+        end_time,
+        preset_speakers,
+        PROJECT_NO,
+        CLASS_NO,
+        PI_ID,
+        TRIAL_NO,
+    )
 
     speakers_not_spoken_result = json.dumps(speakers_not_spoken)
 
@@ -193,7 +195,8 @@ def check_speakers_not_spoken():
     return jsonify(result)
 
 
-def check_speakers_within_timeframe(start_time, end_time, preset_speakers):
+def check_speakers_within_timeframe(
+        start_time, end_time, preset_speakers, PROJECT_NO, CLASS_NO, PI_ID, TRIAL_NO):
     speakers_not_spoken = set(preset_speakers)
 
     # Define the range of numbers (10 to 240) for the filenames
@@ -216,7 +219,14 @@ def analyze_transcripts():
     """
     Off-topic and emotion -> DynamoDB {JSON}
     """
-    data = get_id_json_from_s3()
+    data = request.json
+    bag_of_words = data['bag_of_words']
+    request_start_time = int(data['start_time'])  # Example format: '20'
+    request_end_time = int(data['end_time'])  # 60
+    PROJECT_NO, CLASS_NO = data['config']['PROJECT_NO'], data['config']['CLASS_NO']
+    PI_ID, TRIAL_NO = data['config']['PI_ID'], data['config']['TRIAL_NO']
+
+    data = get_id_json_from_s3(PROJECT_NO, CLASS_NO, PI_ID, TRIAL_NO)
 
     # Initialize an empty set for preset_speakers
     preset_speakers = set()
@@ -226,10 +236,6 @@ def analyze_transcripts():
         if person['ID']:  # Check if the ID list is not empty
             preset_speakers.add(person['ID'])
 
-    data = request.json
-    bag_of_words = data['bag_of_words']
-    request_start_time = int(data['start_time'])  # Example format: '20'
-    request_end_time = int(data['end_time'])  # 60
     # Initialize an empty list to store the table data
     all_table_data = []
 
@@ -376,6 +382,8 @@ def topic_detection():
     data = request.json
     request_start_time = int(data['start_time'])
     request_end_time = int(data['end_time'])
+    PROJECT_NO, CLASS_NO = data['config']['PROJECT_NO'], data['config']['CLASS_NO']
+    PI_ID, TRIAL_NO = data['config']['PI_ID'], data['config']['TRIAL_NO']
     speaker_topic = dict()
     spoken_topics = dict()
     bag_of_words = data['bag_of_words']
@@ -427,6 +435,8 @@ def emotion_check():
     data = request.json
     request_start_time = int(data['start_time'])
     request_end_time = int(data['end_time'])
+    PROJECT_NO, CLASS_NO = data['config']['PROJECT_NO'], data['config']['CLASS_NO']
+    PI_ID, TRIAL_NO = data['config']['PI_ID'], data['config']['TRIAL_NO']
     speaker_emotion = dict()
 
     try:
@@ -507,7 +517,13 @@ def check_server_working_post():
 
 @application.route('/append_transcript', methods=['POST'])
 def append_transcript():
-    data = get_id_json_from_s3()
+    data = request.json
+    request_start_time = int(data['start_time'])  # Example format: '20'
+    request_end_time = int(data['end_time'])  # 60
+    PROJECT_NO, CLASS_NO = data['config']['PROJECT_NO'], data['config']['CLASS_NO']
+    PI_ID, TRIAL_NO = data['config']['PI_ID'], data['config']['TRIAL_NO']
+
+    data = get_id_json_from_s3(PROJECT_NO, CLASS_NO, PI_ID, TRIAL_NO)
 
     # Initialize an empty set for preset_speakers
     preset_speakers = set()
@@ -517,9 +533,7 @@ def append_transcript():
         if person['ID']:  # Check if the ID list is not empty
             preset_speakers.add(person['ID'])
 
-    data = request.json
-    request_start_time = int(data['start_time'])  # Example format: '20'
-    request_end_time = int(data['end_time'])  # 60
+    
     # Initialize an empty list to store the table data
     speaker_words = defaultdict(str)
 
@@ -592,26 +606,6 @@ def append_transcript():
     }
 
     return jsonify(result)
-
-
-@application.route('/initial_setup', methods=['POST'])
-def initial_setup():
-    global PROJECT_NO, CLASS_NO, TRIAL_NO, PI_ID
-    data = request.get_json()
-
-    PROJECT_NO = str(data['PROJECT_NO'] if 'PROJECT_NO' in data else 1)
-    CLASS_NO = str(data['CLASS_NO'] if 'CLASS_NO' in data else 1)
-    TRIAL_NO = str(data['TRIAL_NO'] if 'TRIAL_NO' in data else 1)
-    PI_ID = str(data['PI_ID'] if 'PI_ID' in data else 1)
-
-    return jsonify({
-        'Message': 'Global Variables Updated.',
-        'PROJECT_NO': PROJECT_NO,
-        'CLASS_NO': CLASS_NO,
-        'TRIAL_NO': TRIAL_NO,
-        'PI_ID': PI_ID,
-    })
-
 
 if __name__ == '__main__':
     application.run(host='0.0.0.0', debug=True, port=8080)
