@@ -227,6 +227,62 @@ To test gpio pins, run `gpiomon gpiochip4 PIN_NUMBER` and press the button. For 
 
 ### Run multiple bash scripts on boot in Raspberry Pi
 
+Create systemd service file
+
+```
+sudo nano /etc/systemd/system/respeaker_record.service
+```
+
+Paste this in and edit if the path is different
+```
+  GNU nano 7.2      /etc/systemd/system/respeaker_record.service                
+[Unit]
+Description=ReSpeaker Audio Recording Script
+After=network.target sound.target
+Wants=network-online.target
+ExecStartPre=/bin/sleep 20
+
+[Service]
+User=respeaker2
+WorkingDirectory=/home/respeaker2/respeaker_dev/Hardware/bashfiles
+ExecStart=/usr/bin/bash /home/respeaker2/respeaker_dev/Hardware/bashfiles/run_scripts.sh
+Restart=on-failure
+RestartSec=5
+Environment=PATH=/usr/bin:/usr/local/bin
+Environment=PROJECT_ROOT=/home/respeaker2/respeaker_dev
+StandardOutput=append:/var/log/respeaker_record.log
+StandardError=append:/var/log/respeaker_record.err
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Make sure the script is executable
+```
+chmod +x /home/respeaker2/respeaker_dev/Hardware/bashfiles/run_scripts.sh
+```
+
+Enable and start the service
+```
+sudo systemctl daemon-reload
+sudo systemctl enable respeaker_record.service
+sudo systemctl start respeaker_record.service
+```
+
+check the service status
+```
+sudo systemctl status respeaker_record.service
+```
+
+Make sure your user is in the audio group (Change respeaker2 to yours):
+```
+sudo usermod -aG audio respeaker2
+```
+
+----------------------------------------------------------------------------------------
+
+### Run multiple bash scripts on boot in Raspberry Pi (WE DON'T USE CRONTAB ANYMORE)
+
 Edit the crontab
 
 ```
@@ -238,7 +294,7 @@ Add these lines of codes
 @reboot sleep 30 && $HOME/respeaker_dev/Hardware/bashfiles/run_scripts.sh
 ```
 
-
+----------------------------------------------------------------------------------------
 
 ### Analysis
 

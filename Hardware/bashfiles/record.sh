@@ -4,6 +4,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
 source $PROJECT_ROOT/venv/bin/activate
+pulseaudio --start
 
 TODAY=$(date +"%b%d")
 HIGHEST_COUNTER=$(ls -d $PROJECT_ROOT/Hardware/dataset/${TODAY}_* 2>/dev/null | awk -F"${TODAY}_" '{print $2}' | sort -n | tail -1)
