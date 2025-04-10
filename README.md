@@ -235,7 +235,6 @@ sudo nano /etc/systemd/system/respeaker_record.service
 
 Paste this in and edit if the path is different
 ```
-  GNU nano 7.2      /etc/systemd/system/respeaker_record.service                
 [Unit]
 Description=ReSpeaker Audio Recording Script
 After=network.target sound.target
