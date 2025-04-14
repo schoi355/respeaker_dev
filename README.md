@@ -27,7 +27,7 @@ sudo apt install portaudio19-dev
 
 ### Install python packages
 ```
-pip install pandas numpy watchdog
+pip install pandas numpy watchdog inotify-tools
 ```
 
 ### Set up Respeaker
