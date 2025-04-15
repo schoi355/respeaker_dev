@@ -206,19 +206,20 @@ def main():
     observer.schedule(event_handler, path=watched_directory, recursive=True)
 
     # ********************************************************** LOCAL URLs *************************************
-    # csns_url = "http://127.0.0.1:8000/check_speakers_not_spoken"
-    # analysis_url = "http://127.0.0.1:8000/analysis"
-    # emotion_url = "http://127.0.0.1:8000/emotion_check"
-    # topic_url = "http://127.0.0.1:8000/topic_detection"
-    # transcript_url = "http://127.0.0.1:8000/append_transcript"
+    csns_url = "http://127.0.0.1:8000/check_speakers_not_spoken"
+    analysis_url = "http://127.0.0.1:8000/analysis"
+    emotion_url = "http://127.0.0.1:8000/emotion_check"
+    topic_url = "http://127.0.0.1:8000/topic_detection"
+    transcript_url = "http://127.0.0.1:8000/append_transcript"
     # ***********************************************************************************************************
 
     # ********************************************* SERVER URLs *************************************************
-    csns_url = "http://3.131.78.98/check_speakers_not_spoken"
-    analysis_url = "http://3.131.78.98/analysis"
-    emotion_url = "http://3.131.78.98/emotion_check"
-    topic_url = "http://3.131.78.98/topic_detection"
-    transcript_url = "http://3.131.78.98/append_transcript"
+    # csns_url = "http://3.131.78.98/check_speakers_not_spoken"
+    # analysis_url = "http://3.131.78.98/analysis"
+    # emotion_url = "http://3.131.78.98/emotion_check"
+    # topic_url = "http://3.131.78.98/topic_detection"
+    # transcript_url = "http://3.131.78.98/append_transcript"
+    
     # ***********************************************************************************************************
 
     print(f"Watching directory: {watched_directory}")
@@ -236,7 +237,7 @@ def main():
     PI_ID = config_data['pi_id']
     match = re.search(r'_(\d+)$', dir_name)
     TRIAL_NO = match.group(1) if match else None
-    bag_of_words = ['Technology', 'Entrepenuer', 'Food', 'Junk', 'Career', 'Coffee']
+    bag_of_words = ['Pollution', 'Waste', 'Deforestation', 'Air', 'Water', 'Energy', 'Plastic', 'Sustainabiliy']
     # ************************************************************************************************************
     config = {
         'PROJECT_NO': PROJECT_NO,
@@ -244,14 +245,6 @@ def main():
         'PI_ID': PI_ID,
         'TRIAL_NO': TRIAL_NO,
     }
-    # time.sleep(10)
-    # response = requests.post(setup_url, json={
-    #     "PROJECT_NO": PROJECT_NO,
-    #     "CLASS_NO": CLASS_NO,
-    #     "TRIAL_NO": TRIAL_NO,
-    #     "PI_ID": PI_ID
-    # })
-    # print(response.text)
 
     try:
         while True:

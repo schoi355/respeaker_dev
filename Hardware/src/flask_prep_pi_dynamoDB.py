@@ -34,19 +34,18 @@ AWS_REGION = application.config['AWS_REGION']
 device = 0 if torch.cuda.is_available() else -1
 topic_detection_classifier = pipeline(
     'zero-shot-classification',
-    model='Recognai/zeroshot_selectra_small',
+    model='tasksource/deberta-small-long-nli',
     device=device
 )
 emotion_detection_classifier = pipeline(
     'text-classification',
     model='j-hartmann/emotion-english-distilroberta-base',
-    top_k=None,
     device=device
 )
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 date_folder = datetime.now().strftime('%Y-%m-%d')
-# date_folder = '2025-02-20'
+# date_folder = '2025-04-11'
 CHUNKSIZE = 15  # sec
 
 dynamodb = boto3.resource(
@@ -97,6 +96,7 @@ def get_dynamic_folder_name(prefix):
 
 def get_id_json_from_s3(PROJECT_NO, CLASS_NO, PI_ID, TRIAL_NO):
     file_key = f'Project_{PROJECT_NO}/Class_{CLASS_NO}/{date_folder}/Pi_{PI_ID}/Trial_{TRIAL_NO}/ID.json'
+    print(file_key)
     response = s3.get_object(Bucket=S3_BUCKET_NAME, Key=file_key)
     content = response['Body'].read().decode('utf-8')
     return json.loads(content)
@@ -391,11 +391,10 @@ def topic_detection():
     speaker_topic = dict()
     spoken_topics = dict()
     bag_of_words = data['bag_of_words']
-    topic_hypothesis = f"This sentence is about {', '.join(bag_of_words)}."
 
     def topic_detection(seq):
-        CI = 0.6
-        res = topic_detection_classifier(seq, topic_hypothesis, multi_label=False)
+        CI = 0.75
+        res = topic_detection_classifier(seq, bag_of_words, multi_label=True)
         if res['scores'][0] > CI:
             return 'On-Topic', [res['labels'][i] for i in range(3)]
         else:
@@ -455,8 +454,7 @@ def emotion_check():
         for speaker, spoken in speaker_texts.items():
             if speaker != 'Unknown':
                 op = emotion_detection_classifier(spoken)
-                op[0].sort(key=lambda x: x['score'], reverse=True)
-                speaker_emotion[speaker] = op[0][0]['label']
+                speaker_emotion[speaker] = op[0]['label']
 
         try:
             response = table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})

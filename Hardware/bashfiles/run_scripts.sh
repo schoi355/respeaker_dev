@@ -14,7 +14,7 @@ sleep 5
 $SCRIPT_DIR/setup.sh >> $PROJECT_ROOT/Hardware/logs/setup.log 2>&1 &
 
 # log "Starting flask.sh"
-# sleep 5
+# sleep 5s
 # $SCRIPT_DIR/flask.sh >> $PROJECT_ROOT/Hardware/logs/flask.log 2>&1 &
 
 # log "Starting flask_batch.sh"

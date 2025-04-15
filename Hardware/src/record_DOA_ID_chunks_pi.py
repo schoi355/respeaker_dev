@@ -312,7 +312,7 @@ def main():
     ID_file  = dir_name + '/assign_speaker/ID.json'
     config_file = dir_name + '/assign_speaker/config.json'
 
-    pi_id = 2   # Change this according to the sd card number
+    pi_id = 1   # Change this according to the sd card number
     b1, b2, b3 = 6, 5, 4
 
     chip = gpiod.Chip("/dev/gpiochip4")
