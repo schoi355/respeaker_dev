@@ -206,20 +206,21 @@ def main():
     observer.schedule(event_handler, path=watched_directory, recursive=True)
 
     # ********************************************************** LOCAL URLs *************************************
-    csns_url = "http://127.0.0.1:8000/check_speakers_not_spoken"
-    analysis_url = "http://127.0.0.1:8000/analysis"
-    emotion_url = "http://127.0.0.1:8000/emotion_check"
-    topic_url = "http://127.0.0.1:8000/topic_detection"
-    transcript_url = "http://127.0.0.1:8000/append_transcript"
-    speaker_url = "http://127.0.0.1:8000/get_speakers"
+    # csns_url = "http://127.0.0.1:8000/check_speakers_not_spoken"
+    # analysis_url = "http://127.0.0.1:8000/analysis"
+    # emotion_url = "http://127.0.0.1:8000/emotion_check"
+    # topic_url = "http://127.0.0.1:8000/topic_detection"
+    # transcript_url = "http://127.0.0.1:8000/append_transcript"
+    # speaker_url = "http://127.0.0.1:8000/get_speakers"
     # ***********************************************************************************************************
 
     # ********************************************* SERVER URLs *************************************************
-    # csns_url = "http://3.131.78.98/check_speakers_not_spoken"
-    # analysis_url = "http://3.131.78.98/analysis"
-    # emotion_url = "http://3.131.78.98/emotion_check"
-    # topic_url = "http://3.131.78.98/topic_detection"
-    # transcript_url = "http://3.131.78.98/append_transcript"
+    csns_url = "http://3.131.78.98/check_speakers_not_spoken"
+    analysis_url = "http://3.131.78.98/analysis"
+    emotion_url = "http://3.131.78.98/emotion_check"
+    topic_url = "http://3.131.78.98/topic_detection"
+    transcript_url = "http://3.131.78.98/append_transcript"
+    speaker_url = "http://3.131.78.98/get_speakers"
     # ***********************************************************************************************************
 
     print(f"Watching directory: {watched_directory}")
