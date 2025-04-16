@@ -64,6 +64,7 @@ s3 = boto3.client(
 
 table = dynamodb.Table('respeaker-analysis')
 transcript_table = dynamodb.Table('respeaker-transcripts')
+speakers_table = dynamodb.Table('respeaker-speakers')
 S3_BUCKET_NAME = 'respeaker-recordings'
 
 # Initialize NLTK stemmer
@@ -392,9 +393,10 @@ def topic_detection():
     spoken_topics = dict()
     bag_of_words = data['bag_of_words']
 
-    def topic_detection(seq):
+    def topic_detection(seq, bag_of_words):
         CI = 0.75
         res = topic_detection_classifier(seq, bag_of_words, multi_label=True)
+        print(res)
         if res['scores'][0] > CI:
             return 'On-Topic', [res['labels'][i] for i in range(3)]
         else:
@@ -411,7 +413,7 @@ def topic_detection():
 
         for speaker, spoken in speaker_texts.items():
             if speaker != 'Unknown':
-                speaker_topic[speaker], spoken_topics[speaker] = topic_detection(spoken)
+                speaker_topic[speaker], spoken_topics[speaker] = topic_detection(spoken, bag_of_words)
 
         try:
             response = table.get_item(Key={'Date': date_folder, 'Pi_id': str(PI_ID)})
@@ -608,6 +610,57 @@ def append_transcript():
     }
 
     return jsonify(result)
+
+
+@application.route('/get_speakers', methods=['POST'])
+def get_speakers():
+    data = request.json
+    PROJECT_NO, CLASS_NO = data['config']['PROJECT_NO'], data['config']['CLASS_NO']
+    PI_ID, TRIAL_NO = data['config']['PI_ID'], data['config']['TRIAL_NO']
+
+    id_json = get_id_json_from_s3(PROJECT_NO, CLASS_NO, PI_ID, TRIAL_NO)
+    speaker_list = []
+    for speaker in id_json.keys():
+        if speaker[0] == 'p':
+            speaker_list.append(speaker)
+    print(speaker_list)
+
+    try:
+        # Fetch the current item based on group_id
+        response = speakers_table.get_item(Key={'Date': date_folder})
+        item = response.get('Item')
+        
+
+        if item:
+            try:
+                item[f'PI_{PI_ID}'] = speaker_list
+                speakers_table.put_item(Item=item)
+            except Exception as e:
+                return jsonify({
+                    'Message': 'An error occurred',
+                    'Error': e
+                })
+        else:
+            new_item = {
+                'Date': date_folder,
+                f'PI_{PI_ID}': {
+                    'Speakers': speaker_list
+                },
+            }
+            speakers_table.put_item(Item=new_item)
+
+
+    except botocore.exceptions.ClientError as error:
+        # Handle the exception
+        print(f"An error occurred: {error}")
+
+    result = {
+        'message': 'Speakers added to DynamoDB',
+        f'PI_{PI_ID}': speaker_list
+    }
+
+    return jsonify(result)
+
 
 if __name__ == '__main__':
     application.run(debug=True, port=8000)

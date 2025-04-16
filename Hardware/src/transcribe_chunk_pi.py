@@ -211,6 +211,7 @@ def main():
     emotion_url = "http://127.0.0.1:8000/emotion_check"
     topic_url = "http://127.0.0.1:8000/topic_detection"
     transcript_url = "http://127.0.0.1:8000/append_transcript"
+    speaker_url = "http://127.0.0.1:8000/get_speakers"
     # ***********************************************************************************************************
 
     # ********************************************* SERVER URLs *************************************************
@@ -219,7 +220,6 @@ def main():
     # emotion_url = "http://3.131.78.98/emotion_check"
     # topic_url = "http://3.131.78.98/topic_detection"
     # transcript_url = "http://3.131.78.98/append_transcript"
-    
     # ***********************************************************************************************************
 
     print(f"Watching directory: {watched_directory}")
@@ -246,6 +246,8 @@ def main():
         'TRIAL_NO': TRIAL_NO,
     }
 
+    got_speakers = True
+
     try:
         while True:
             if not doa_queue.empty() and not audio_queue.empty():
@@ -258,6 +260,12 @@ def main():
                     time.sleep(15)
                     print("Waiting for the audio/doa coming")
 
+                if got_speakers:
+                    id_json_data = {'config': config}
+                    speakler_response = requests.post(speaker_url, json=id_json_data)
+                    print("Response from DynamoDB Speaker List: ", speakler_response)
+                    got_speakers = False
+                
                 ID_file  = dir_name + '/assign_speaker/ID.json'
                 with open(ID_file, 'r') as f:
                     ID_data = json.load(f)
