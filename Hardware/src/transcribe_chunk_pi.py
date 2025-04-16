@@ -237,7 +237,7 @@ def main():
     PI_ID = config_data['pi_id']
     match = re.search(r'_(\d+)$', dir_name)
     TRIAL_NO = match.group(1) if match else None
-    bag_of_words = ['Pollution', 'Waste', 'Deforestation', 'Air', 'Water', 'Energy', 'Plastic', 'Sustainabiliy']
+    bag_of_words = ['Pollution', 'Waste', 'Deforestation', 'Air', 'Energy', 'Water', 'Plastic', 'Sustainability']
     # ************************************************************************************************************
     config = {
         'PROJECT_NO': PROJECT_NO,

@@ -27,7 +27,7 @@ sudo apt install portaudio19-dev
 
 ### Install python packages
 ```
-pip install pandas numpy watchdog
+pip install pandas numpy watchdog inotify-tools
 ```
 
 ### Set up Respeaker
@@ -294,8 +294,32 @@ Add these lines of codes
 ```
 
 ----------------------------------------------------------------------------------------
+### Set the date and time (synchronize local time) on Pi
 
-### Analysis
+Enable NTP
+```
+sudo timedatectl set-ntp true 
+```
+
+Install systemd-timesyncd if needed:
+```
+sudo apt install systemd-timesyncd
+```
+
+Reboot or restart the service
+```
+sudo systemctl restart systemd-timesyncd
+```
+
+Check the date and time
+```
+date
+```
+
+
+----------------------------------------------------------------------------------------
+
+### Analysis (in progress)
 
 /check_speakers_not_spoken: not accumlate time, call this url every 60 sec..
 check_speakers_not_spoken: first table: 0 - 60 sec, second: 60 - 120 sec, ...
